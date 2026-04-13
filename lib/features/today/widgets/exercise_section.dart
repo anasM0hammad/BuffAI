@@ -82,6 +82,7 @@ class ExerciseSection extends ConsumerWidget {
                     color: AppColors.textSecondary,
                     size: 20,
                   ),
+                  tooltip: '',
                   color: AppColors.surfaceElevated,
                   padding: EdgeInsets.zero,
                   splashRadius: 18,
