@@ -9,11 +9,15 @@ final todaySetsProvider = StreamProvider<List<WorkoutSet>>((ref) {
   return db.watchTodaySets();
 });
 
-/// Gets today's sets for a specific exercise.
+/// Watches today's sets for a specific exercise. Derived from the stream
+/// provider so it auto-updates when new sets are logged.
 final todaySetsForExerciseProvider =
-    FutureProvider.family<List<WorkoutSet>, int>((ref, exerciseId) {
-  final db = ref.watch(databaseProvider);
-  return db.getTodaySetsForExercise(exerciseId);
+    Provider.family<AsyncValue<List<WorkoutSet>>, int>((ref, exerciseId) {
+  final allSets = ref.watch(todaySetsProvider);
+  return allSets.whenData(
+    (sets) => sets.where((s) => s.exerciseId == exerciseId).toList()
+      ..sort((a, b) => a.setNumber.compareTo(b.setNumber)),
+  );
 });
 
 /// Gets all sets for an exercise (for history screen).

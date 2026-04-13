@@ -44,9 +44,11 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
     });
   }
 
-  Future<void> _copyLastSet() async {
-    final todaySets =
-        await ref.read(todaySetsForExerciseProvider(widget.exerciseId).future);
+  void _copyLastSet() {
+    final todaySets = ref
+            .read(todaySetsForExerciseProvider(widget.exerciseId))
+            .valueOrNull ??
+        [];
     if (todaySets.isNotEmpty) {
       final last = todaySets.last;
       _weightController.text = formatWeightValue(last.weight);
@@ -64,8 +66,10 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
 
     setState(() => _saving = true);
 
-    final todaySets =
-        await ref.read(todaySetsForExerciseProvider(widget.exerciseId).future);
+    final todaySets = ref
+            .read(todaySetsForExerciseProvider(widget.exerciseId))
+            .valueOrNull ??
+        [];
     final setNumber = todaySets.length + 1;
 
     final logSet = ref.read(logSetProvider);
@@ -92,138 +96,133 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
     // Auto-fill on first build
     _autoFill();
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.4,
-      maxChildSize: 0.75,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
+    final viewInsets = MediaQuery.of(context).viewInsets;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          top: false,
           child: SingleChildScrollView(
-            controller: scrollController,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 12,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.textTertiary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Exercise name
+                exerciseAsync.when(
+                  data: (exercise) => Text(
+                    exercise.name,
+                    style: AppTypography.sectionHeader,
+                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 8),
+
+                // Last session summary
+                lastSessionAsync.when(
+                  data: (lastSets) {
+                    if (lastSets.isEmpty) return const SizedBox.shrink();
+                    final summary = lastSets
+                        .map((s) => formatSetSummary(s.weight, s.reps))
+                        .join('  |  ');
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.textTertiary,
-                        borderRadius: BorderRadius.circular(2),
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                      child: Text(
+                        'Last: $summary',
+                        style: AppTypography.caption
+                            .copyWith(color: AppColors.textTertiary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 20),
 
-                  // Exercise name
-                  exerciseAsync.when(
-                    data: (exercise) => Text(
-                      exercise.name,
-                      style: AppTypography.sectionHeader,
-                    ),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Last session summary
-                  lastSessionAsync.when(
-                    data: (lastSets) {
-                      if (lastSets.isEmpty) return const SizedBox.shrink();
-                      final summary = lastSets
-                          .map((s) => formatSetSummary(s.weight, s.reps))
-                          .join('  |  ');
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          borderRadius: BorderRadius.circular(8),
+                // Set number label + copy button
+                todaySetsAsync.when(
+                  data: (todaySets) => Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Set ${todaySets.length + 1}',
+                        style: AppTypography.cardTitle.copyWith(
+                          color: AppColors.textSecondary,
                         ),
-                        child: Text(
-                          'Last: $summary',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textTertiary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Set number label + copy button
-                  todaySetsAsync.when(
-                    data: (todaySets) => Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Set ${todaySets.length + 1}',
-                          style: AppTypography.cardTitle.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        if (todaySets.isNotEmpty)
-                          GestureDetector(
-                            onTap: _copyLastSet,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySoft,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Copy last set',
-                                style: AppTypography.caption.copyWith(
-                                  color: AppColors.primaryRed,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                      ),
+                      if (todaySets.isNotEmpty)
+                        GestureDetector(
+                          onTap: _copyLastSet,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Copy last set',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.primaryRed,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 12),
 
-                  // Weight + reps inputs
-                  WeightRepInput(
-                    weightController: _weightController,
-                    repsController: _repsController,
-                  ),
-                  const SizedBox(height: 24),
+                // Weight + reps inputs
+                WeightRepInput(
+                  weightController: _weightController,
+                  repsController: _repsController,
+                ),
+                const SizedBox(height: 24),
 
-                  // Save button
-                  BuffButton(
-                    label: 'Save Set',
-                    onPressed: _saveSet,
-                    isLoading: _saving,
-                  ),
-                ],
-              ),
+                // Save button
+                BuffButton(
+                  label: 'Save Set',
+                  onPressed: _saveSet,
+                  isLoading: _saving,
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
