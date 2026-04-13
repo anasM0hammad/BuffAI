@@ -1,4 +1,4 @@
-name: buff_ai
+name: BuffAI
 description: Dead-simple gym workout logger. Log sets, see what you lifted last time.
 publish_to: 'none'
 version: 1.0.0+1

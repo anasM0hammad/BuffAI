@@ -1,4 +1,4 @@
-# buff_ai
+# BuffAI
 
 A new Flutter project.
 

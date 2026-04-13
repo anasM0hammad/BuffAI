@@ -1,6 +1,6 @@
 {
-    "name": "buff_ai",
-    "short_name": "buff_ai",
+    "name": "BuffAI",
+    "short_name": "BuffAI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

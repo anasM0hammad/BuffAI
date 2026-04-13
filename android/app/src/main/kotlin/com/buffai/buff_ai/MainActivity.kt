@@ -1,4 +1,4 @@
-package com.buffai.buff_ai
+package com.buffai.BuffAI
 
 import io.flutter.embedding.android.FlutterActivity
 

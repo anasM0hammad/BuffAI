@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.buffai" "\0"
-            VALUE "FileDescription", "buff_ai" "\0"
+            VALUE "FileDescription", "BuffAI" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "buff_ai" "\0"
+            VALUE "InternalName", "BuffAI" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.buffai. All rights reserved." "\0"
-            VALUE "OriginalFilename", "buff_ai.exe" "\0"
-            VALUE "ProductName", "buff_ai" "\0"
+            VALUE "OriginalFilename", "BuffAI.exe" "\0"
+            VALUE "ProductName", "BuffAI" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
