@@ -14,6 +14,7 @@ class ExerciseSection extends ConsumerWidget {
   final List<WorkoutSet> sets;
   final VoidCallback? onTapHistory;
   final VoidCallback? onTapLog;
+  final ValueChanged<WorkoutSet>? onTapSet;
 
   const ExerciseSection({
     super.key,
@@ -21,6 +22,7 @@ class ExerciseSection extends ConsumerWidget {
     required this.sets,
     this.onTapHistory,
     this.onTapLog,
+    this.onTapSet,
   });
 
   @override
@@ -111,6 +113,7 @@ class ExerciseSection extends ConsumerWidget {
             (set) => SetRow(
               workoutSet: set,
               onDismissed: () => _deleteSet(ref, context, set),
+              onTap: onTapSet == null ? null : () => onTapSet!(set),
             ),
           ),
 

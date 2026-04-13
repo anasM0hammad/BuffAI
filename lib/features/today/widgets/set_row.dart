@@ -7,11 +7,13 @@ import '../../../data/database/app_database.dart';
 class SetRow extends StatelessWidget {
   final WorkoutSet workoutSet;
   final VoidCallback? onDismissed;
+  final VoidCallback? onTap;
 
   const SetRow({
     super.key,
     required this.workoutSet,
     this.onDismissed,
+    this.onTap,
   });
 
   @override
@@ -26,7 +28,9 @@ class SetRow extends StatelessWidget {
         color: Colors.red.shade900,
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
-      child: Padding(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
@@ -61,6 +65,7 @@ class SetRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

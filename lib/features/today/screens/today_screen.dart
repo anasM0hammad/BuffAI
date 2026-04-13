@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/database/app_database.dart';
 import '../../../data/providers/workout_sets_provider.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../log_set/screens/exercise_picker_sheet.dart';
@@ -50,6 +51,18 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     if (saved == true && mounted) {
       setState(() => _showRestTimer = true);
     }
+  }
+
+  void _openEditSet(WorkoutSet set) async {
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => LogSetSheet(
+        exerciseId: set.exerciseId,
+        existingSet: set,
+      ),
+    );
   }
 
   void _openHistory(int exerciseId) {
@@ -128,6 +141,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         sets: grouped[exerciseId]!.cast(),
                         onTapHistory: () => _openHistory(exerciseId),
                         onTapLog: () => _openLogSet(exerciseId),
+                        onTapSet: _openEditSet,
                       );
                     },
                   );
