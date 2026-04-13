@@ -75,6 +75,43 @@ class ExerciseSection extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
+                  color: AppColors.surfaceElevated,
+                  padding: EdgeInsets.zero,
+                  splashRadius: 18,
+                  onSelected: (value) {
+                    if (value == 'delete_today') {
+                      _confirmDeleteTodaySets(ref, context);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem<String>(
+                      value: 'delete_today',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.delete_outline,
+                            color: AppColors.primaryRed,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Delete today's sets",
+                            style: AppTypography.body.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -119,6 +156,77 @@ class ExerciseSection extends ConsumerWidget {
 
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteTodaySets(
+      WidgetRef ref, BuildContext context) async {
+    if (sets.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: Text(
+          "Delete today's sets?",
+          style: AppTypography.cardTitle,
+        ),
+        content: Text(
+          'This removes all ${sets.length} set${sets.length == 1 ? '' : 's'} logged for this exercise today.',
+          style: AppTypography.body
+              .copyWith(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style:
+                  AppTypography.body.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Delete',
+              style:
+                  AppTypography.body.copyWith(color: AppColors.primaryRed),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final snapshot = List<WorkoutSet>.from(sets);
+    final deleteTodaySets = ref.read(deleteTodaySetsForExerciseProvider);
+    await deleteTodaySets(exerciseId);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Today's sets deleted",
+          style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+        ),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: AppColors.primaryRed,
+          onPressed: () {
+            final logSet = ref.read(logSetProvider);
+            for (final set in snapshot) {
+              logSet(
+                exerciseId: set.exerciseId,
+                weight: set.weight,
+                reps: set.reps,
+                setNumber: set.setNumber,
+              );
+            }
+          },
+        ),
       ),
     );
   }

@@ -92,6 +92,13 @@ final deleteSetProvider = Provider<Future<int> Function(int id)>((ref) {
   return (int id) => db.deleteWorkoutSet(id);
 });
 
+/// Service provider for deleting all of today's sets for an exercise.
+final deleteTodaySetsForExerciseProvider =
+    Provider<Future<int> Function(int exerciseId)>((ref) {
+  final db = ref.watch(databaseProvider);
+  return (int exerciseId) => db.deleteTodaySetsForExercise(exerciseId);
+});
+
 /// Groups today's sets by exercise ID for the Today screen.
 final todaySetsByExerciseProvider =
     Provider<Map<int, List<WorkoutSet>>>((ref) {
