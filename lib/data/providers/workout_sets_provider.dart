@@ -54,6 +54,38 @@ final logSetProvider = Provider<
   };
 });
 
+/// Service provider for updating an existing set.
+final updateSetProvider = Provider<
+    Future<bool> Function({
+      required int id,
+      required int exerciseId,
+      required double weight,
+      required int reps,
+      required int setNumber,
+      required DateTime loggedAt,
+    })>((ref) {
+  final db = ref.watch(databaseProvider);
+  return ({
+    required int id,
+    required int exerciseId,
+    required double weight,
+    required int reps,
+    required int setNumber,
+    required DateTime loggedAt,
+  }) {
+    return db.updateWorkoutSet(
+      WorkoutSetsCompanion(
+        id: Value(id),
+        exerciseId: Value(exerciseId),
+        weight: Value(weight),
+        reps: Value(reps),
+        setNumber: Value(setNumber),
+        loggedAt: Value(loggedAt),
+      ),
+    );
+  };
+});
+
 /// Service provider for deleting a set.
 final deleteSetProvider = Provider<Future<int> Function(int id)>((ref) {
   final db = ref.watch(databaseProvider);

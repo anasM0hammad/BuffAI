@@ -72,6 +72,10 @@ class AppDatabase extends _$AppDatabase {
     return into(workoutSets).insert(entry);
   }
 
+  Future<bool> updateWorkoutSet(WorkoutSetsCompanion entry) {
+    return update(workoutSets).replace(entry);
+  }
+
   Future<int> deleteWorkoutSet(int id) {
     return (delete(workoutSets)..where((s) => s.id.equals(id))).go();
   }
