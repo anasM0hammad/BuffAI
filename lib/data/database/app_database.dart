@@ -80,6 +80,19 @@ class AppDatabase extends _$AppDatabase {
     return (delete(workoutSets)..where((s) => s.id.equals(id))).go();
   }
 
+  /// Delete all of today's sets for a specific exercise.
+  Future<int> deleteTodaySetsForExercise(int exerciseId) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    return (delete(workoutSets)
+          ..where((s) =>
+              s.exerciseId.equals(exerciseId) &
+              s.loggedAt.isBetweenValues(todayStart, todayEnd)))
+        .go();
+  }
+
   /// Get all sets logged today, ordered by exercise then set number.
   Stream<List<WorkoutSet>> watchTodaySets() {
     final now = DateTime.now();
