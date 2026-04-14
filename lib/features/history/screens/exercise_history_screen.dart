@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/measurement_type.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/formatters.dart';
@@ -60,6 +61,11 @@ class _ExerciseHistoryScreenState extends ConsumerState<ExerciseHistoryScreen> {
             );
           }
 
+          final type = exerciseAsync.whenOrNull(
+                data: (e) => MeasurementType.fromString(e.measurementType),
+              ) ??
+              MeasurementType.weightReps;
+
           final grouped = _groupByDate(allSets);
           final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -71,6 +77,7 @@ class _ExerciseHistoryScreenState extends ConsumerState<ExerciseHistoryScreen> {
               ...displayDates.map((date) => SessionCard(
                     date: date,
                     sets: grouped[date]!,
+                    measurementType: type,
                   )),
               if (!_showAll && dates.length > 3)
                 Padding(

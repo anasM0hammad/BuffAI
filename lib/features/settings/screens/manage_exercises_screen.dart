@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/measurement_type.dart';
 import '../../../core/constants/muscle_groups.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -26,7 +27,6 @@ class ManageExercisesScreen extends ConsumerWidget {
       ),
       body: exercisesAsync.when(
         data: (exercises) {
-          // Group by muscle group
           final grouped = <String, List<Exercise>>{};
           for (final e in exercises) {
             grouped.putIfAbsent(e.muscleGroup, () => []).add(e);
@@ -69,7 +69,6 @@ class ManageExercisesScreen extends ConsumerWidget {
 }
 
 /// Shared dialog for creating or editing a custom exercise.
-/// If [existing] is null we are adding; otherwise we are editing.
 Future<void> _showExerciseDialog(
   BuildContext context,
   WidgetRef ref, {
@@ -79,6 +78,9 @@ Future<void> _showExerciseDialog(
   MuscleGroup group = existing != null
       ? MuscleGroup.fromString(existing.muscleGroup)
       : MuscleGroup.other;
+  MeasurementType measurement = existing != null
+      ? MeasurementType.fromString(existing.measurementType)
+      : MeasurementType.weightReps;
   final isEditing = existing != null;
 
   await showDialog(
@@ -90,49 +92,78 @@ Future<void> _showExerciseDialog(
           isEditing ? 'Edit Exercise' : 'New Exercise',
           style: AppTypography.cardTitle,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              style: AppTypography.body,
-              cursorColor: AppColors.primaryRed,
-              decoration: InputDecoration(
-                hintText: 'Exercise name',
-                hintStyle:
-                    AppTypography.body.copyWith(color: AppColors.textTertiary),
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                style: AppTypography.body,
+                cursorColor: AppColors.primaryRed,
+                decoration: InputDecoration(
+                  hintText: 'Exercise name',
+                  hintStyle: AppTypography.body
+                      .copyWith(color: AppColors.textTertiary),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<MuscleGroup>(
-              value: group,
-              dropdownColor: AppColors.surfaceElevated,
-              style: AppTypography.body,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+              const SizedBox(height: 12),
+              DropdownButtonFormField<MuscleGroup>(
+                value: group,
+                dropdownColor: AppColors.surfaceElevated,
+                style: AppTypography.body,
+                decoration: InputDecoration(
+                  labelText: 'Muscle group',
+                  labelStyle: AppTypography.caption,
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
+                items: MuscleGroup.values
+                    .map((g) => DropdownMenuItem(
+                          value: g,
+                          child: Text(g.displayName),
+                        ))
+                    .toList(),
+                onChanged: (v) =>
+                    setDialogState(() => group = v ?? MuscleGroup.other),
               ),
-              items: MuscleGroup.values.map((g) {
-                return DropdownMenuItem(
-                  value: g,
-                  child: Text(g.displayName),
-                );
-              }).toList(),
-              onChanged: (v) =>
-                  setDialogState(() => group = v ?? MuscleGroup.other),
-            ),
-          ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<MeasurementType>(
+                value: measurement,
+                dropdownColor: AppColors.surfaceElevated,
+                style: AppTypography.body,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Measured by',
+                  labelStyle: AppTypography.caption,
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: MeasurementType.values
+                    .map((m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(m.displayName),
+                        ))
+                    .toList(),
+                onChanged: (v) => setDialogState(() =>
+                    measurement = v ?? MeasurementType.weightReps),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -151,12 +182,17 @@ Future<void> _showExerciseDialog(
                   id: existing.id,
                   name: name,
                   muscleGroup: group.name,
+                  measurementType: measurement.dbValue,
                   isCustom: existing.isCustom,
                   createdAt: existing.createdAt,
                 );
               } else {
                 final addExercise = ref.read(addExerciseProvider);
-                await addExercise(name, group.name);
+                await addExercise(
+                  name: name,
+                  muscleGroup: group.name,
+                  measurementType: measurement.dbValue,
+                );
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
@@ -179,6 +215,7 @@ class _ExerciseTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final type = MeasurementType.fromString(exercise.measurementType);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       decoration: BoxDecoration(
@@ -215,6 +252,14 @@ class _ExerciseTile extends ConsumerWidget {
               ),
             ],
           ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            type.displayName,
+            style: AppTypography.caption
+                .copyWith(color: AppColors.textTertiary, fontSize: 11),
+          ),
         ),
         trailing: exercise.isCustom
             ? Row(

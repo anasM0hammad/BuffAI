@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/measurement_type.dart';
 import '../../../core/constants/muscle_groups.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -31,11 +32,8 @@ class ExerciseSection extends ConsumerWidget {
     final exerciseAsync = ref.watch(exerciseByIdProvider(exerciseId));
     final lastSessionAsync = ref.watch(lastSessionSetsProvider(exerciseId));
 
-    // Today's volume: sum of weight x reps across logged sets.
-    final totalVolume = sets.fold<double>(
-      0,
-      (sum, s) => sum + s.weight * s.reps,
-    );
+    // Count working sets (exclude drops from "N sets" label).
+    final workingSets = sets.where((s) => s.parentSetId == null).length;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -52,167 +50,197 @@ class ExerciseSection extends ConsumerWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Thin accent stripe at the top for a touch of color.
-          Container(
-            height: 2,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primaryRed, AppColors.primaryDeep],
-              ),
-            ),
-          ),
-
-          // Exercise header: name + muscle group chip, actions on the right.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: exerciseAsync.when(
-                    data: (exercise) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          exercise.name,
-                          style: AppTypography.cardTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            _MuscleChip(
-                              label: MuscleGroup.fromString(
-                                      exercise.muscleGroup)
-                                  .displayName,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                '${sets.length} set${sets.length == 1 ? '' : 's'}  •  ${formatWeight(totalVolume)}',
-                                style: AppTypography.caption.copyWith(
-                                  color: AppColors.textTertiary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    loading: () => const SizedBox(height: 34),
-                    error: (_, __) => Text(
-                      'Unknown Exercise',
-                      style: AppTypography.cardTitle,
-                    ),
+      child: exerciseAsync.when(
+        data: (exercise) {
+          final type = MeasurementType.fromString(exercise.measurementType);
+          final summary = _buildVolumeSummary(type);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Accent stripe
+              Container(
+                height: 2,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primaryRed, AppColors.primaryDeep],
                   ),
                 ),
-                const SizedBox(width: 8),
-                _AddSetButton(onTap: onTapLog),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 20,
-                  ),
-                  tooltip: '',
-                  color: AppColors.surfaceElevated,
-                  padding: EdgeInsets.zero,
-                  splashRadius: 18,
-                  onSelected: (value) {
-                    if (value == 'delete_today') {
-                      _confirmDeleteTodaySets(ref, context);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem<String>(
-                      value: 'delete_today',
-                      child: Row(
+              ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.delete_outline,
-                            color: AppColors.primaryRed,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
                           Text(
-                            "Delete today's sets",
-                            style: AppTypography.body.copyWith(
-                              color: AppColors.textPrimary,
-                            ),
+                            exercise.name,
+                            style: AppTypography.cardTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              _MuscleChip(
+                                label: MuscleGroup.fromString(
+                                        exercise.muscleGroup)
+                                    .displayName,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '$workingSets set${workingSets == 1 ? '' : 's'}$summary',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textTertiary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    _AddSetButton(onTap: onTapLog),
+                    PopupMenuButton<String>(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      tooltip: '',
+                      color: AppColors.surfaceElevated,
+                      padding: EdgeInsets.zero,
+                      splashRadius: 18,
+                      onSelected: (value) {
+                        if (value == 'delete_today') {
+                          _confirmDeleteTodaySets(ref, context);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem<String>(
+                          value: 'delete_today',
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.delete_outline,
+                                color: AppColors.primaryRed,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Delete today's sets",
+                                style: AppTypography.body.copyWith(
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // Last session summary (tappable for history)
-          lastSessionAsync.when(
-            data: (lastSets) {
-              if (lastSets.isEmpty) return const SizedBox.shrink();
-              final summary = lastSets
-                  .map((s) => formatSetSummary(s.weight, s.reps))
-                  .join(', ');
-              return InkWell(
-                onTap: onTapHistory,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.history_rounded,
-                        size: 14,
-                        color: AppColors.textTertiary,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Last: $summary',
-                          style: AppTypography.caption.copyWith(
+              // Last session
+              lastSessionAsync.when(
+                data: (lastSets) {
+                  if (lastSets.isEmpty) return const SizedBox.shrink();
+                  final summary = lastSets
+                      .where((s) => s.parentSetId == null)
+                      .map((s) => formatSetMetrics(s, type))
+                      .join(', ');
+                  return InkWell(
+                    onTap: onTapHistory,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.history_rounded,
+                            size: 14,
                             color: AppColors.textTertiary,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Last: $summary',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textTertiary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: AppColors.textTertiary,
+                          ),
+                        ],
                       ),
-                      const Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: AppColors.textTertiary,
-                      ),
-                    ],
-                  ),
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+
+              const Divider(height: 1, indent: 16, endIndent: 16),
+
+              // Set rows
+              ...sets.map(
+                (set) => SetRow(
+                  workoutSet: set,
+                  measurementType: type,
+                  onDismissed: () => _deleteSet(ref, context, set),
+                  onTap: onTapSet == null ? null : () => onTapSet!(set),
                 ),
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
+              ),
 
-          // Divider
-          const Divider(height: 1, indent: 16, endIndent: 16),
-
-          // Set rows
-          ...sets.map(
-            (set) => SetRow(
-              workoutSet: set,
-              onDismissed: () => _deleteSet(ref, context, set),
-              onTap: onTapSet == null ? null : () => onTapSet!(set),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-        ],
+              const SizedBox(height: 8),
+            ],
+          );
+        },
+        loading: () => const SizedBox(height: 80),
+        error: (_, __) => const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Unknown Exercise'),
+        ),
       ),
     );
+  }
+
+  /// A terse "•  42 kg" / "•  12:00" etc. suffix to pair with the set count.
+  String _buildVolumeSummary(MeasurementType type) {
+    if (sets.isEmpty) return '';
+    switch (type) {
+      case MeasurementType.weightReps:
+        final vol = sets.fold<double>(0, (s, x) => s + x.weight * x.reps);
+        if (vol <= 0) return '';
+        return '  •  ${formatWeight(vol)}';
+      case MeasurementType.repsBodyweight:
+        final reps = sets.fold<int>(0, (s, x) => s + x.reps);
+        if (reps <= 0) return '';
+        return '  •  $reps reps';
+      case MeasurementType.time:
+      case MeasurementType.weightTime:
+        final secs =
+            sets.fold<int>(0, (s, x) => s + (x.durationSec ?? 0));
+        if (secs <= 0) return '';
+        return '  •  ${formatDuration(secs)}';
+      case MeasurementType.distanceTime:
+        final m = sets.fold<double>(0, (s, x) => s + (x.distanceM ?? 0));
+        if (m <= 0) return '';
+        return '  •  ${formatDistance(m)}';
+    }
   }
 
   Future<void> _confirmDeleteTodaySets(
@@ -255,8 +283,6 @@ class ExerciseSection extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    // Capture callables + messenger BEFORE the delete, because this card may
-    // be unmounted once its last set is removed (ref/context become stale).
     final snapshot = List<WorkoutSet>.from(sets);
     final deleteTodaySets = ref.read(deleteTodaySetsForExerciseProvider);
     final logSet = ref.read(logSetProvider);
@@ -275,13 +301,38 @@ class ExerciseSection extends ConsumerWidget {
         action: SnackBarAction(
           label: 'Undo',
           textColor: AppColors.primaryRed,
-          onPressed: () {
-            for (final set in snapshot) {
-              logSet(
+          onPressed: () async {
+            // Parent sets first so we can map old IDs -> new IDs for drops.
+            final idMap = <int, int>{};
+            final parents = snapshot.where((s) => s.parentSetId == null);
+            for (final set in parents) {
+              final newId = await logSet(
                 exerciseId: set.exerciseId,
                 weight: set.weight,
                 reps: set.reps,
+                durationSec: set.durationSec,
+                distanceM: set.distanceM,
+                addedWeight: set.addedWeight,
                 setNumber: set.setNumber,
+                isHalfReps: set.isHalfReps,
+              );
+              idMap[set.id] = newId;
+            }
+            final drops = snapshot.where((s) => s.parentSetId != null);
+            for (final set in drops) {
+              final newParent = idMap[set.parentSetId];
+              if (newParent == null) continue;
+              await logSet(
+                exerciseId: set.exerciseId,
+                weight: set.weight,
+                reps: set.reps,
+                durationSec: set.durationSec,
+                distanceM: set.distanceM,
+                addedWeight: set.addedWeight,
+                setNumber: set.setNumber,
+                parentSetId: newParent,
+                isDropSet: true,
+                isHalfReps: set.isHalfReps,
               );
             }
           },
@@ -291,8 +342,6 @@ class ExerciseSection extends ConsumerWidget {
   }
 
   void _deleteSet(WidgetRef ref, BuildContext context, WorkoutSet set) {
-    // Capture callables + messenger BEFORE the delete; when the last set is
-    // swiped away the card unmounts and ref/context become stale.
     final deleteSet = ref.read(deleteSetProvider);
     final logSet = ref.read(logSetProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -315,7 +364,13 @@ class ExerciseSection extends ConsumerWidget {
               exerciseId: set.exerciseId,
               weight: set.weight,
               reps: set.reps,
+              durationSec: set.durationSec,
+              distanceM: set.distanceM,
+              addedWeight: set.addedWeight,
               setNumber: set.setNumber,
+              parentSetId: set.parentSetId,
+              isDropSet: set.isDropSet,
+              isHalfReps: set.isHalfReps,
             );
           },
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../calculators/screens/calculators_screen.dart';
 import '../../today/screens/today_screen.dart';
 import 'manage_exercises_screen.dart';
 
@@ -88,6 +89,21 @@ class SettingsScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => const ManageExercisesScreen(),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          _SectionHeader(title: 'Tools'),
+          _SettingsTile(
+            title: 'Calculators',
+            subtitle: 'Energy, BMI, body fat, 1RM, plate loader',
+            icon: Icons.calculate_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CalculatorsScreen(),
               ),
             ),
           ),

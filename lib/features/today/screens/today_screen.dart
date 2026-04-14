@@ -123,7 +123,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                     grouped[set.exerciseId]!.add(set);
                   }
                   for (final list in grouped.values) {
-                    list.sort((a, b) => a.setNumber.compareTo(b.setNumber));
+                    list.sort((a, b) {
+                      final n = a.setNumber.compareTo(b.setNumber);
+                      if (n != 0) return n;
+                      final dropOrder = (a.isDropSet ? 1 : 0)
+                          .compareTo(b.isDropSet ? 1 : 0);
+                      if (dropOrder != 0) return dropOrder;
+                      return a.id.compareTo(b.id);
+                    });
                   }
 
                   return ListView.builder(
