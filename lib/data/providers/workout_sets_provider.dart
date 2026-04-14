@@ -99,6 +99,13 @@ final deleteTodaySetsForExerciseProvider =
   return (int exerciseId) => db.deleteTodaySetsForExercise(exerciseId);
 });
 
+/// Watches the heaviest (PR) set per exercise across all history.
+final personalRecordsProvider =
+    StreamProvider<Map<int, WorkoutSet>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchPersonalRecords();
+});
+
 /// Groups today's sets by exercise ID for the Today screen.
 final todaySetsByExerciseProvider =
     Provider<Map<int, List<WorkoutSet>>>((ref) {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/today/screens/today_screen.dart';
-import 'features/settings/screens/settings_screen.dart';
+import 'features/shell/main_shell.dart';
 
 class BuffAIApp extends StatelessWidget {
   const BuffAIApp({super.key});
@@ -12,10 +11,7 @@ class BuffAIApp extends StatelessWidget {
       title: 'Buff AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const TodayScreen(),
-      routes: {
-        '/settings': (_) => const SettingsScreen(),
-      },
+      home: const MainShell(),
     );
   }
 }

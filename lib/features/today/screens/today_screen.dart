@@ -85,25 +85,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Today', style: AppTypography.sectionHeader),
-                      const SizedBox(height: 2),
-                      Text(
-                        formatDate(DateTime.now()),
-                        style: AppTypography.caption,
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings_outlined),
-                    color: AppColors.textSecondary,
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/settings'),
+                  Text('Today', style: AppTypography.sectionHeader),
+                  const SizedBox(height: 2),
+                  Text(
+                    formatDate(DateTime.now()),
+                    style: AppTypography.caption,
                   ),
                 ],
               ),
@@ -120,8 +109,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                     );
                   }
 
-                  // Group sets by exercise
-                  final grouped = <int, List<dynamic>>{};
+                  // Group sets by exercise. Iteration order over `sets`
+                  // is ascending loggedAt, so first-seen order = the order
+                  // exercises were first logged today. Sort within each
+                  // group by setNumber for display.
+                  final grouped = <int, List<WorkoutSet>>{};
                   final exerciseOrder = <int>[];
                   for (final set in sets) {
                     if (!grouped.containsKey(set.exerciseId)) {
@@ -129,6 +121,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                       exerciseOrder.add(set.exerciseId);
                     }
                     grouped[set.exerciseId]!.add(set);
+                  }
+                  for (final list in grouped.values) {
+                    list.sort((a, b) => a.setNumber.compareTo(b.setNumber));
                   }
 
                   return ListView.builder(
@@ -138,7 +133,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                       final exerciseId = exerciseOrder[index];
                       return ExerciseSection(
                         exerciseId: exerciseId,
-                        sets: grouped[exerciseId]!.cast(),
+                        sets: grouped[exerciseId]!,
                         onTapHistory: () => _openHistory(exerciseId),
                         onTapLog: () => _openLogSet(exerciseId),
                         onTapSet: _openEditSet,
