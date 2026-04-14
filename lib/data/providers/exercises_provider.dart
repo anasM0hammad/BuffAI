@@ -43,3 +43,38 @@ final addExerciseProvider = Provider<Future<int> Function(String name, String mu
     );
   };
 });
+
+/// Provider for updating a custom exercise's name/muscle group.
+final updateExerciseProvider = Provider<
+    Future<bool> Function({
+      required int id,
+      required String name,
+      required String muscleGroup,
+      required bool isCustom,
+      required DateTime createdAt,
+    })>((ref) {
+  final db = ref.watch(databaseProvider);
+  return ({
+    required int id,
+    required String name,
+    required String muscleGroup,
+    required bool isCustom,
+    required DateTime createdAt,
+  }) {
+    return db.updateExercise(
+      ExercisesCompanion(
+        id: Value(id),
+        name: Value(name),
+        muscleGroup: Value(muscleGroup),
+        isCustom: Value(isCustom),
+        createdAt: Value(createdAt),
+      ),
+    );
+  };
+});
+
+/// Provider for deleting a custom exercise.
+final deleteExerciseProvider = Provider<Future<int> Function(int id)>((ref) {
+  final db = ref.watch(databaseProvider);
+  return (int id) => db.deleteExercise(id);
+});

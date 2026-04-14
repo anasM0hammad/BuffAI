@@ -62,8 +62,13 @@ class AppDatabase extends _$AppDatabase {
     return update(exercises).replace(entry);
   }
 
-  Future<int> deleteExercise(int id) {
-    return (delete(exercises)..where((e) => e.id.equals(id))).go();
+  /// Deletes an exercise along with every set that referenced it. Wrapped in
+  /// a transaction so we never leave orphan sets on failure.
+  Future<int> deleteExercise(int id) async {
+    return transaction(() async {
+      await (delete(workoutSets)..where((s) => s.exerciseId.equals(id))).go();
+      return (delete(exercises)..where((e) => e.id.equals(id))).go();
+    });
   }
 
   // ── Workout Set Queries ──
@@ -93,7 +98,8 @@ class AppDatabase extends _$AppDatabase {
         .go();
   }
 
-  /// Get all sets logged today, ordered by exercise then set number.
+  /// Get all sets logged today, ordered by time logged so callers can derive
+  /// "order of first appearance" grouping.
   Stream<List<WorkoutSet>> watchTodaySets() {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -103,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
           ..where(
               (s) => s.loggedAt.isBetweenValues(todayStart, todayEnd))
           ..orderBy([
-            (s) => OrderingTerm(expression: s.exerciseId),
+            (s) => OrderingTerm(expression: s.loggedAt),
             (s) => OrderingTerm(expression: s.setNumber),
           ]))
         .watch();
@@ -173,6 +179,33 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(s) => OrderingTerm.desc(s.loggedAt)])
           ..limit(1))
         .getSingleOrNull();
+  }
+
+  /// Watch the personal record (heaviest single set) for every exercise that
+  /// has at least one logged set. Emits whenever any set changes. Ties on
+  /// weight are broken by reps descending, then loggedAt descending so the
+  /// most impressive recent set wins.
+  Stream<Map<int, WorkoutSet>> watchPersonalRecords() {
+    return select(workoutSets).watch().map((sets) {
+      final records = <int, WorkoutSet>{};
+      for (final set in sets) {
+        final current = records[set.exerciseId];
+        if (current == null || _isBetterPr(set, current)) {
+          records[set.exerciseId] = set;
+        }
+      }
+      return records;
+    });
+  }
+
+  static bool _isBetterPr(WorkoutSet candidate, WorkoutSet current) {
+    if (candidate.weight != current.weight) {
+      return candidate.weight > current.weight;
+    }
+    if (candidate.reps != current.reps) {
+      return candidate.reps > current.reps;
+    }
+    return candidate.loggedAt.isAfter(current.loggedAt);
   }
 }
 
