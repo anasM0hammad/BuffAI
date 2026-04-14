@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/measurement_type.dart';
 import '../../../core/constants/muscle_groups.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -202,6 +203,7 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
   void _showCreateExerciseDialog() {
     final nameController = TextEditingController();
     MuscleGroup group = MuscleGroup.other;
+    MeasurementType measurement = MeasurementType.weightReps;
 
     showDialog(
       context: context,
@@ -209,50 +211,79 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
           title: Text('New Exercise', style: AppTypography.cardTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                style: AppTypography.body,
-                cursorColor: AppColors.primaryRed,
-                decoration: InputDecoration(
-                  hintText: 'Exercise name',
-                  hintStyle: AppTypography.body.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<MuscleGroup>(
-                value: group,
-                dropdownColor: AppColors.surfaceElevated,
-                style: AppTypography.body,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  style: AppTypography.body,
+                  cursorColor: AppColors.primaryRed,
+                  decoration: InputDecoration(
+                    hintText: 'Exercise name',
+                    hintStyle: AppTypography.body.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
-                items: MuscleGroup.values.map((g) {
-                  return DropdownMenuItem(
-                    value: g,
-                    child: Text(g.displayName),
-                  );
-                }).toList(),
-                onChanged: (v) =>
-                    setDialogState(() => group = v ?? MuscleGroup.other),
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<MuscleGroup>(
+                  value: group,
+                  dropdownColor: AppColors.surfaceElevated,
+                  style: AppTypography.body,
+                  decoration: InputDecoration(
+                    labelText: 'Muscle group',
+                    labelStyle: AppTypography.caption,
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: MuscleGroup.values.map((g) {
+                    return DropdownMenuItem(
+                      value: g,
+                      child: Text(g.displayName),
+                    );
+                  }).toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => group = v ?? MuscleGroup.other),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<MeasurementType>(
+                  value: measurement,
+                  dropdownColor: AppColors.surfaceElevated,
+                  style: AppTypography.body,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Measured by',
+                    labelStyle: AppTypography.caption,
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: MeasurementType.values.map((m) {
+                    return DropdownMenuItem(
+                      value: m,
+                      child: Text(m.displayName),
+                    );
+                  }).toList(),
+                  onChanged: (v) => setDialogState(
+                      () => measurement = v ?? MeasurementType.weightReps),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -266,7 +297,11 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
                 final addExercise = ref.read(addExerciseProvider);
-                final id = await addExercise(name, group.name);
+                final id = await addExercise(
+                  name: name,
+                  muscleGroup: group.name,
+                  measurementType: measurement.dbValue,
+                );
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) Navigator.pop(context, id);
               },

@@ -31,25 +31,36 @@ final mostRecentSetProvider =
 });
 
 /// Provider for inserting a new custom exercise.
-final addExerciseProvider = Provider<Future<int> Function(String name, String muscleGroup)>((ref) {
+final addExerciseProvider = Provider<
+    Future<int> Function({
+      required String name,
+      required String muscleGroup,
+      required String measurementType,
+    })>((ref) {
   final db = ref.watch(databaseProvider);
-  return (String name, String muscleGroup) {
+  return ({
+    required String name,
+    required String muscleGroup,
+    required String measurementType,
+  }) {
     return db.insertExercise(
       ExercisesCompanion.insert(
         name: name,
         muscleGroup: muscleGroup,
+        measurementType: Value(measurementType),
         isCustom: const Value(true),
       ),
     );
   };
 });
 
-/// Provider for updating a custom exercise's name/muscle group.
+/// Provider for updating an exercise's name/muscle group/measurement type.
 final updateExerciseProvider = Provider<
     Future<bool> Function({
       required int id,
       required String name,
       required String muscleGroup,
+      required String measurementType,
       required bool isCustom,
       required DateTime createdAt,
     })>((ref) {
@@ -58,6 +69,7 @@ final updateExerciseProvider = Provider<
     required int id,
     required String name,
     required String muscleGroup,
+    required String measurementType,
     required bool isCustom,
     required DateTime createdAt,
   }) {
@@ -66,6 +78,7 @@ final updateExerciseProvider = Provider<
         id: Value(id),
         name: Value(name),
         muscleGroup: Value(muscleGroup),
+        measurementType: Value(measurementType),
         isCustom: Value(isCustom),
         createdAt: Value(createdAt),
       ),

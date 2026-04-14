@@ -18,13 +18,30 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
           await m.createAll();
           await _seedDefaultExercises();
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          if (from < 2) {
+            // Add new columns introduced in v2.
+            await m.addColumn(exercises, exercises.measurementType);
+            await m.addColumn(workoutSets, workoutSets.durationSec);
+            await m.addColumn(workoutSets, workoutSets.distanceM);
+            await m.addColumn(workoutSets, workoutSets.addedWeight);
+            await m.addColumn(workoutSets, workoutSets.parentSetId);
+            await m.addColumn(workoutSets, workoutSets.isDropSet);
+            await m.addColumn(workoutSets, workoutSets.isHalfReps);
+
+            // Backfill: seed any new defaults the user doesn't already
+            // have, and repair measurement types on existing defaults.
+            await _seedMissingDefaults();
+            await _backfillMeasurementTypes();
+          }
         },
       );
 
@@ -34,6 +51,46 @@ class AppDatabase extends _$AppDatabase {
         ExercisesCompanion.insert(
           name: exercise.name,
           muscleGroup: exercise.muscleGroup.name,
+          measurementType: Value(exercise.measurementType.dbValue),
+        ),
+      );
+    }
+  }
+
+  /// Insert any default exercises that the user doesn't already have
+  /// (matched by name). Used on upgrade to bring older installs up to the
+  /// current curated library without duplicating existing rows.
+  Future<void> _seedMissingDefaults() async {
+    final existing = await select(exercises).get();
+    final existingNames = existing.map((e) => e.name.toLowerCase()).toSet();
+
+    for (final exercise in defaultExercises) {
+      if (existingNames.contains(exercise.name.toLowerCase())) continue;
+      await into(exercises).insert(
+        ExercisesCompanion.insert(
+          name: exercise.name,
+          muscleGroup: exercise.muscleGroup.name,
+          measurementType: Value(exercise.measurementType.dbValue),
+        ),
+      );
+    }
+  }
+
+  /// For each built-in exercise name, align the stored measurement type
+  /// with the curated value. User customs are left alone.
+  Future<void> _backfillMeasurementTypes() async {
+    final byName = {
+      for (final d in defaultExercises) d.name.toLowerCase(): d,
+    };
+    final all = await select(exercises).get();
+    for (final row in all) {
+      if (row.isCustom) continue;
+      final match = byName[row.name.toLowerCase()];
+      if (match == null) continue;
+      if (row.measurementType == match.measurementType.dbValue) continue;
+      await (update(exercises)..where((e) => e.id.equals(row.id))).write(
+        ExercisesCompanion(
+          measurementType: Value(match.measurementType.dbValue),
         ),
       );
     }
@@ -181,14 +238,17 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
-  /// Watch the personal record (heaviest single set) for every exercise that
-  /// has at least one logged set. Emits whenever any set changes. Ties on
-  /// weight are broken by reps descending, then loggedAt descending so the
-  /// most impressive recent set wins.
+  /// Watch the personal-record set for every exercise. PR semantics depend
+  /// on measurement type: max weight for loaded work, max duration for
+  /// timed work, max distance for cardio. Emits whenever sets change.
+  ///
+  /// Drops (sets with a non-null parentSetId) are excluded — we measure
+  /// PRs against clean working sets only.
   Stream<Map<int, WorkoutSet>> watchPersonalRecords() {
     return select(workoutSets).watch().map((sets) {
       final records = <int, WorkoutSet>{};
       for (final set in sets) {
+        if (set.parentSetId != null) continue;
         final current = records[set.exerciseId];
         if (current == null || _isBetterPr(set, current)) {
           records[set.exerciseId] = set;
@@ -199,12 +259,31 @@ class AppDatabase extends _$AppDatabase {
   }
 
   static bool _isBetterPr(WorkoutSet candidate, WorkoutSet current) {
-    if (candidate.weight != current.weight) {
-      return candidate.weight > current.weight;
+    // Distance-based (e.g. rowing): prefer longer distance, then faster time.
+    if (candidate.distanceM != null || current.distanceM != null) {
+      final cd = candidate.distanceM ?? 0;
+      final rd = current.distanceM ?? 0;
+      if (cd != rd) return cd > rd;
+      final ct = candidate.durationSec ?? 0;
+      final rt = current.durationSec ?? 0;
+      if (ct != rt) return ct < rt; // faster = better at same distance
+      return candidate.loggedAt.isAfter(current.loggedAt);
     }
+
+    // Weight-based (with or without reps / time).
+    final cw = candidate.weight + (candidate.addedWeight ?? 0);
+    final rw = current.weight + (current.addedWeight ?? 0);
+    if (cw != rw) return cw > rw;
+
     if (candidate.reps != current.reps) {
       return candidate.reps > current.reps;
     }
+
+    // Pure time (e.g. plank): longer hold wins.
+    final cdur = candidate.durationSec ?? 0;
+    final rdur = current.durationSec ?? 0;
+    if (cdur != rdur) return cdur > rdur;
+
     return candidate.loggedAt.isAfter(current.loggedAt);
   }
 }

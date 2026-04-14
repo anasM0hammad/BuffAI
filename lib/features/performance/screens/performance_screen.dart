@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/measurement_type.dart';
 import '../../../core/constants/muscle_groups.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -38,7 +39,6 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text('Performance', style: AppTypography.sectionHeader),
@@ -51,7 +51,6 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
               ),
             ),
 
-            // Search
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
@@ -112,10 +111,8 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
     final exercises = exercisesAsync.value ?? const [];
     final prs = prsAsync.value ?? const <int, WorkoutSet>{};
 
-    // Only show exercises with at least one PR.
-    final withPr = exercises
-        .where((e) => prs.containsKey(e.id))
-        .toList(growable: false);
+    final withPr =
+        exercises.where((e) => prs.containsKey(e.id)).toList(growable: false);
 
     if (withPr.isEmpty) {
       return const EmptyState(
@@ -124,7 +121,6 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       );
     }
 
-    // Search filter
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
         ? withPr
@@ -138,12 +134,12 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       return EmptyState(message: 'No exercises match "$_query".');
     }
 
-    // Sort by PR weight desc so the heaviest lifts lead.
+    // Sort: newer PRs first (more relevant), with weight-based bests bubbling
+    // up within the same day.
     filtered.sort((a, b) {
       final pa = prs[a.id]!;
       final pb = prs[b.id]!;
-      if (pa.weight != pb.weight) return pb.weight.compareTo(pa.weight);
-      return pb.reps.compareTo(pa.reps);
+      return pb.loggedAt.compareTo(pa.loggedAt);
     });
 
     return ListView.separated(
@@ -153,7 +149,8 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       itemBuilder: (context, index) {
         final exercise = filtered[index];
         final pr = prs[exercise.id]!;
-        return _PrCard(exercise: exercise, record: pr);
+        final type = MeasurementType.fromString(exercise.measurementType);
+        return _PrCard(exercise: exercise, record: pr, type: type);
       },
     );
   }
@@ -162,8 +159,13 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
 class _PrCard extends StatelessWidget {
   final Exercise exercise;
   final WorkoutSet record;
+  final MeasurementType type;
 
-  const _PrCard({required this.exercise, required this.record});
+  const _PrCard({
+    required this.exercise,
+    required this.record,
+    required this.type,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +180,6 @@ class _PrCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left: name + muscle group + date
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,7 +219,6 @@ class _PrCard extends StatelessWidget {
 
           const SizedBox(width: 12),
 
-          // Right: PR block
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -247,7 +247,7 @@ class _PrCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  formatSetSummary(record.weight, record.reps),
+                  formatSetMetrics(record, type),
                   style: AppTypography.body.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
