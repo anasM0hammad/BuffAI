@@ -5,8 +5,9 @@ import '../../../core/theme/app_typography.dart';
 import 'body_fat_calculator_screen.dart';
 import 'bmi_calculator_screen.dart';
 import 'energy_calculator_screen.dart';
+import 'heart_rate_calculator_screen.dart';
 import 'one_rm_calculator_screen.dart';
-import 'plate_calculator_screen.dart';
+import 'water_calculator_screen.dart';
 
 class CalculatorsScreen extends StatelessWidget {
   const CalculatorsScreen({super.key});
@@ -26,12 +27,18 @@ class CalculatorsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          _SectionLabel(title: 'Nutrition'),
+          _SectionLabel(title: 'Nutrition & Hydration'),
           _CalcTile(
             icon: Icons.local_fire_department_rounded,
             title: 'Energy & Macros',
             subtitle: 'BMR, TDEE, calorie target',
             onTap: () => _open(context, const EnergyCalculatorScreen()),
+          ),
+          _CalcTile(
+            icon: Icons.water_drop_rounded,
+            title: 'Water Intake',
+            subtitle: 'Daily target by weight, activity, weather',
+            onTap: () => _open(context, const WaterCalculatorScreen()),
           ),
           _CalcTile(
             icon: Icons.monitor_weight_rounded,
@@ -54,10 +61,10 @@ class CalculatorsScreen extends StatelessWidget {
             onTap: () => _open(context, const OneRmCalculatorScreen()),
           ),
           _CalcTile(
-            icon: Icons.grid_view_rounded,
-            title: 'Plate Loader',
-            subtitle: 'Plates to load per side for a target weight',
-            onTap: () => _open(context, const PlateCalculatorScreen()),
+            icon: Icons.favorite_rounded,
+            title: 'Target Heart Rate',
+            subtitle: 'Karvonen zones from age + resting HR',
+            onTap: () => _open(context, const HeartRateCalculatorScreen()),
           ),
         ],
       ),

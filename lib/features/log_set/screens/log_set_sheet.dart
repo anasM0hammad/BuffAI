@@ -719,7 +719,7 @@ class _HalfRepsToggle extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color:
               selected ? AppColors.primarySoft : AppColors.surfaceElevated,
@@ -733,20 +733,21 @@ class _HalfRepsToggle extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              selected ? Icons.check_circle : Icons.adjust,
-              size: 14,
+              Icons.front_hand_outlined,
+              size: 16,
               color: selected
                   ? AppColors.primaryRed
                   : AppColors.textSecondary,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
-              '½ reps (partial)',
-              style: AppTypography.caption.copyWith(
+              'Took help (spotter)',
+              style: AppTypography.body.copyWith(
                 color: selected
                     ? AppColors.primaryRed
                     : AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ],

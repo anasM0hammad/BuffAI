@@ -86,23 +86,23 @@ class SessionCard extends StatelessWidget {
                       ),
                     ),
                     if (set.isHalfReps)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: AppColors.primaryRed.withOpacity(0.4),
-                            width: 1,
+                      Tooltip(
+                        message: 'Took help',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.primaryRed.withOpacity(0.4),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          '½',
-                          style: AppTypography.caption.copyWith(
+                          child: const Icon(
+                            Icons.front_hand_outlined,
+                            size: 13,
                             color: AppColors.primaryRed,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
                           ),
                         ),
                       ),
