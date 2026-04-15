@@ -35,6 +35,7 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
