@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../widgets/calc_scaffold.dart';
 
 /// Karvonen target heart rate:
@@ -11,15 +13,16 @@ import '../widgets/calc_scaffold.dart';
 ///
 /// We surface the standard training zones (50–95 % of HRR) so the user can
 /// pick the one that matches the session they're planning.
-class HeartRateCalculatorScreen extends StatefulWidget {
+class HeartRateCalculatorScreen extends ConsumerStatefulWidget {
   const HeartRateCalculatorScreen({super.key});
 
   @override
-  State<HeartRateCalculatorScreen> createState() =>
+  ConsumerState<HeartRateCalculatorScreen> createState() =>
       _HeartRateCalculatorScreenState();
 }
 
-class _HeartRateCalculatorScreenState extends State<HeartRateCalculatorScreen> {
+class _HeartRateCalculatorScreenState
+    extends ConsumerState<HeartRateCalculatorScreen> {
   final _age = TextEditingController();
   final _resting = TextEditingController(text: '60');
 
@@ -31,6 +34,12 @@ class _HeartRateCalculatorScreenState extends State<HeartRateCalculatorScreen> {
   }
 
   void _update() => setState(() {});
+
+  void _seedFromProfile(UserProfile p) {
+    if (_age.text.isEmpty && p.age != null) {
+      _age.text = p.age!.toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -66,6 +75,16 @@ class _HeartRateCalculatorScreenState extends State<HeartRateCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<UserProfile>(
+      userProfileProvider,
+      (_, next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _seedFromProfile(next);
+        });
+      },
+      fireImmediately: true,
+    );
+
     final result = _compute();
 
     return CalcScaffold(

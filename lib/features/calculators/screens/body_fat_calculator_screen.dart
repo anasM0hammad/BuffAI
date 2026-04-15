@@ -1,27 +1,40 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../profile/providers/profile_provider.dart';
 import '../widgets/calc_scaffold.dart';
 
 enum _Sex { male, female }
 
 /// US Navy method (log10 based). Inputs in centimeters.
-class BodyFatCalculatorScreen extends StatefulWidget {
+class BodyFatCalculatorScreen extends ConsumerStatefulWidget {
   const BodyFatCalculatorScreen({super.key});
 
   @override
-  State<BodyFatCalculatorScreen> createState() =>
+  ConsumerState<BodyFatCalculatorScreen> createState() =>
       _BodyFatCalculatorScreenState();
 }
 
-class _BodyFatCalculatorScreenState extends State<BodyFatCalculatorScreen> {
+class _BodyFatCalculatorScreenState
+    extends ConsumerState<BodyFatCalculatorScreen> {
   final _height = TextEditingController();
   final _neck = TextEditingController();
   final _waist = TextEditingController();
   final _hip = TextEditingController();
 
   _Sex _sex = _Sex.male;
+  bool _sexTouchedByUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _height.addListener(() => setState(() {}));
+    _neck.addListener(() => setState(() {}));
+    _waist.addListener(() => setState(() {}));
+    _hip.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -30,6 +43,16 @@ class _BodyFatCalculatorScreenState extends State<BodyFatCalculatorScreen> {
     _waist.dispose();
     _hip.dispose();
     super.dispose();
+  }
+
+  void _seedFromProfile(UserProfile p) {
+    if (_height.text.isEmpty && p.heightCm != null) {
+      _height.text = _fmtNum(p.heightCm!);
+    }
+    if (!_sexTouchedByUser && p.gender != Gender.unspecified) {
+      final newSex = p.gender == Gender.male ? _Sex.male : _Sex.female;
+      if (_sex != newSex) setState(() => _sex = newSex);
+    }
   }
 
   double? _calc() {
@@ -80,6 +103,16 @@ class _BodyFatCalculatorScreenState extends State<BodyFatCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<UserProfile>(
+      userProfileProvider,
+      (_, next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _seedFromProfile(next);
+        });
+      },
+      fireImmediately: true,
+    );
+
     final result = _calc();
     return CalcScaffold(
       title: 'Body Fat %',
@@ -89,7 +122,10 @@ class _BodyFatCalculatorScreenState extends State<BodyFatCalculatorScreen> {
           options: const [_Sex.male, _Sex.female],
           display: (s) => s == _Sex.male ? 'Male' : 'Female',
           value: _sex,
-          onChanged: (v) => setState(() => _sex = v),
+          onChanged: (v) => setState(() {
+            _sex = v;
+            _sexTouchedByUser = true;
+          }),
         ),
         CalcField(label: 'Height', suffix: 'cm', controller: _height),
         CalcField(
@@ -127,4 +163,9 @@ class _BodyFatCalculatorScreenState extends State<BodyFatCalculatorScreen> {
       ],
     );
   }
+}
+
+String _fmtNum(double v) {
+  if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(1);
 }

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../profile/providers/profile_provider.dart';
 import '../widgets/calc_scaffold.dart';
 
-class BmiCalculatorScreen extends StatefulWidget {
+class BmiCalculatorScreen extends ConsumerStatefulWidget {
   const BmiCalculatorScreen({super.key});
 
   @override
-  State<BmiCalculatorScreen> createState() => _BmiCalculatorScreenState();
+  ConsumerState<BmiCalculatorScreen> createState() =>
+      _BmiCalculatorScreenState();
 }
 
-class _BmiCalculatorScreenState extends State<BmiCalculatorScreen> {
+class _BmiCalculatorScreenState extends ConsumerState<BmiCalculatorScreen> {
   final _weight = TextEditingController();
   final _height = TextEditingController();
 
@@ -25,6 +28,15 @@ class _BmiCalculatorScreenState extends State<BmiCalculatorScreen> {
     _weight.dispose();
     _height.dispose();
     super.dispose();
+  }
+
+  void _seedFromProfile(UserProfile p) {
+    if (_weight.text.isEmpty && p.weightKg != null) {
+      _weight.text = _fmtNum(p.weightKg!);
+    }
+    if (_height.text.isEmpty && p.heightCm != null) {
+      _height.text = _fmtNum(p.heightCm!);
+    }
   }
 
   double? get _bmi {
@@ -46,6 +58,16 @@ class _BmiCalculatorScreenState extends State<BmiCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<UserProfile>(
+      userProfileProvider,
+      (_, next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _seedFromProfile(next);
+        });
+      },
+      fireImmediately: true,
+    );
+
     final bmi = _bmi;
     return CalcScaffold(
       title: 'BMI',
@@ -72,4 +94,9 @@ class _BmiCalculatorScreenState extends State<BmiCalculatorScreen> {
       ],
     );
   }
+}
+
+String _fmtNum(double v) {
+  if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(1);
 }

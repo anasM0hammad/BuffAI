@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../calculators/screens/calculators_screen.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../../today/screens/today_screen.dart';
+import '../widgets/edit_profile_sheet.dart';
 import 'manage_exercises_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -13,6 +15,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timerDuration = ref.watch(restTimerDurationProvider);
+    final profile = ref.watch(userProfileProvider);
+    final profileSummary = profile.summary();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -25,6 +29,20 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          // Your Measurements
+          _SectionHeader(title: 'Your Measurements'),
+          _SettingsTile(
+            title: profileSummary == null
+                ? 'Add your details'
+                : 'Your measurements',
+            subtitle: profileSummary ??
+                'Height, weight, age & gender auto-fill into calculators',
+            icon: Icons.person_rounded,
+            onTap: () => showEditProfileSheet(context),
+          ),
+
+          const SizedBox(height: 16),
+
           // Rest Timer Duration
           _SectionHeader(title: 'Rest Timer'),
           Container(
