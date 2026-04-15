@@ -24,7 +24,18 @@ class _HeartRateCalculatorScreenState extends State<HeartRateCalculatorScreen> {
   final _resting = TextEditingController(text: '60');
 
   @override
+  void initState() {
+    super.initState();
+    _age.addListener(_update);
+    _resting.addListener(_update);
+  }
+
+  void _update() => setState(() {});
+
+  @override
   void dispose() {
+    _age.removeListener(_update);
+    _resting.removeListener(_update);
     _age.dispose();
     _resting.dispose();
     super.dispose();
@@ -106,6 +117,14 @@ class _HeartRateCalculatorScreenState extends State<HeartRateCalculatorScreen> {
                   .copyWith(color: AppColors.textTertiary),
             ),
           ),
+        const SizedBox(height: 24),
+        _Disclaimer(
+          'These are estimates based on the standard Karvonen formula. '
+          'They are not medical advice. True maximum heart rate and safe '
+          'training intensities vary by individual. Consult a physician or '
+          'certified coach before training at high intensities, especially '
+          'if you have any cardiovascular concerns.',
+        ),
       ],
     );
   }
@@ -165,6 +184,38 @@ class _ZoneRow extends StatelessWidget {
             'bpm',
             style: AppTypography.caption
                 .copyWith(color: AppColors.textTertiary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Disclaimer extends StatelessWidget {
+  final String text;
+  const _Disclaimer(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.divider, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline,
+              size: 14, color: AppColors.textTertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textTertiary, height: 1.4),
+            ),
           ),
         ],
       ),

@@ -16,13 +16,14 @@ enum _Activity {
 }
 
 enum _Weather {
-  cool('Cool', 0.95),
-  mild('Mild', 1.0),
-  hot('Hot', 1.15),
-  veryHot('Very hot', 1.3);
+  cool('Cool', '< 15 °C / 59 °F', 0.95),
+  mild('Mild', '15–25 °C / 59–77 °F', 1.0),
+  hot('Hot', '25–35 °C / 77–95 °F', 1.15),
+  veryHot('Very hot', '> 35 °C / 95 °F', 1.3);
 
-  const _Weather(this.label, this.factor);
+  const _Weather(this.label, this.range, this.factor);
   final String label;
+  final String range;
   final double factor;
 }
 
@@ -44,7 +45,18 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
   _Weather _weather = _Weather.mild;
 
   @override
+  void initState() {
+    super.initState();
+    _weight.addListener(_update);
+    _height.addListener(_update);
+  }
+
+  void _update() => setState(() {});
+
+  @override
   void dispose() {
+    _weight.removeListener(_update);
+    _height.removeListener(_update);
     _weight.dispose();
     _height.dispose();
     super.dispose();
@@ -102,6 +114,13 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
           value: _weather,
           onChanged: (w) => setState(() => _weather = w),
         ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, left: 2),
+          child: Text(
+            _weather.range,
+            style: AppTypography.caption.copyWith(color: AppColors.textTertiary),
+          ),
+        ),
         if (liters != null) ...[
           ResultCard(
             headline: 'DAILY WATER',
@@ -127,7 +146,46 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
                   .copyWith(color: AppColors.textTertiary),
             ),
           ),
+        const SizedBox(height: 24),
+        _Disclaimer(
+          'These figures are general estimates based on population averages. '
+          'They are not medical or nutritional advice. Individual needs vary '
+          'with health conditions, medications, and other factors. Consult a '
+          'healthcare professional for personalised guidance.',
+        ),
       ],
+    );
+  }
+}
+
+class _Disclaimer extends StatelessWidget {
+  final String text;
+  const _Disclaimer(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.divider, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline,
+              size: 14, color: AppColors.textTertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textTertiary, height: 1.4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
