@@ -22,34 +22,25 @@ class BuffAIApp extends StatelessWidget {
 }
 
 /// Decides whether to show onboarding (first launch) or the main shell.
-class _AppGate extends ConsumerStatefulWidget {
+/// After the user completes onboarding we invalidate the provider, which
+/// re-reads SharedPreferences and flips this branch to MainShell.
+class _AppGate extends ConsumerWidget {
   const _AppGate();
 
   @override
-  ConsumerState<_AppGate> createState() => _AppGateState();
-}
-
-class _AppGateState extends ConsumerState<_AppGate> {
-  /// Set to `true` by onboarding completion to skip straight to the shell
-  /// without re-reading shared prefs.
-  bool _manuallyDismissed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_manuallyDismissed) return const MainShell();
-
+  Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(onboardingCompletedProvider);
     return async.when(
       data: (done) => done
           ? const MainShell()
           : OnboardingScreen(
-              onDone: () => setState(() => _manuallyDismissed = true),
+              onDone: () => ref.invalidate(onboardingCompletedProvider),
             ),
       loading: () => const Scaffold(
         backgroundColor: AppColors.background,
         body: SizedBox.expand(),
       ),
-      // If prefs fail to load, just show the app (fail open).
+      // If prefs fail to load, fail open into the app.
       error: (_, __) => const MainShell(),
     );
   }

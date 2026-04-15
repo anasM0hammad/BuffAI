@@ -19,21 +19,29 @@ class _MainShellState extends State<MainShell> {
   // 0 = Performance, 1 = Today (default), 2 = Settings
   int _index = 1;
 
-  static const _screens = <Widget>[
-    PerformanceScreen(),
-    TodayScreen(),
-    SettingsScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       // IndexedStack preserves each tab's state (scroll, search, etc.).
-      body: IndexedStack(index: _index, children: _screens),
+      // SizedBox.expand ensures the stack always fills the available space
+      // even if an individual tab's subtree collapses unexpectedly.
+      body: SizedBox.expand(
+        child: IndexedStack(
+          index: _index,
+          children: const [
+            PerformanceScreen(),
+            TodayScreen(),
+            SettingsScreen(),
+          ],
+        ),
+      ),
       bottomNavigationBar: _BuffBottomNav(
         currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
+        onTap: (i) {
+          if (i == _index) return;
+          setState(() => _index = i);
+        },
       ),
     );
   }
