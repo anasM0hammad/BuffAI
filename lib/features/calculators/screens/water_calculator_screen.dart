@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../widgets/calc_scaffold.dart';
 
 enum _Activity {
@@ -31,14 +33,16 @@ enum _Weather {
 /// scales by activity and weather. Height nudges the baseline slightly via
 /// a body-surface-area approximation so taller users at the same weight get
 /// a small bump.
-class WaterCalculatorScreen extends StatefulWidget {
+class WaterCalculatorScreen extends ConsumerStatefulWidget {
   const WaterCalculatorScreen({super.key});
 
   @override
-  State<WaterCalculatorScreen> createState() => _WaterCalculatorScreenState();
+  ConsumerState<WaterCalculatorScreen> createState() =>
+      _WaterCalculatorScreenState();
 }
 
-class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
+class _WaterCalculatorScreenState
+    extends ConsumerState<WaterCalculatorScreen> {
   final _weight = TextEditingController();
   final _height = TextEditingController();
   _Activity _activity = _Activity.moderate;
@@ -52,6 +56,15 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
   }
 
   void _update() => setState(() {});
+
+  void _seedFromProfile(UserProfile p) {
+    if (_weight.text.isEmpty && p.weightKg != null) {
+      _weight.text = _fmtNum(p.weightKg!);
+    }
+    if (_height.text.isEmpty && p.heightCm != null) {
+      _height.text = _fmtNum(p.heightCm!);
+    }
+  }
 
   @override
   void dispose() {
@@ -84,6 +97,16 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<UserProfile>(
+      userProfileProvider,
+      (_, next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _seedFromProfile(next);
+        });
+      },
+      fireImmediately: true,
+    );
+
     final liters = _liters();
     final glasses = liters == null ? null : (liters * 1000 / 250).round();
 
@@ -156,6 +179,11 @@ class _WaterCalculatorScreenState extends State<WaterCalculatorScreen> {
       ],
     );
   }
+}
+
+String _fmtNum(double v) {
+  if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(1);
 }
 
 class _Disclaimer extends StatelessWidget {

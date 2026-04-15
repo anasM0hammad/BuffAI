@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../profile/providers/profile_provider.dart';
 import '../widgets/calc_scaffold.dart';
 
 enum _Sex { male, female }
@@ -31,14 +33,16 @@ enum _Goal {
 
 /// BMR via Mifflin-St Jeor, TDEE via activity multiplier, calorie target
 /// via goal offset, macros via protein 2g/kg, fat 25% kcal, carbs rest.
-class EnergyCalculatorScreen extends StatefulWidget {
+class EnergyCalculatorScreen extends ConsumerStatefulWidget {
   const EnergyCalculatorScreen({super.key});
 
   @override
-  State<EnergyCalculatorScreen> createState() => _EnergyCalculatorScreenState();
+  ConsumerState<EnergyCalculatorScreen> createState() =>
+      _EnergyCalculatorScreenState();
 }
 
-class _EnergyCalculatorScreenState extends State<EnergyCalculatorScreen> {
+class _EnergyCalculatorScreenState
+    extends ConsumerState<EnergyCalculatorScreen> {
   final _weight = TextEditingController();
   final _height = TextEditingController();
   final _age = TextEditingController();
@@ -47,12 +51,40 @@ class _EnergyCalculatorScreenState extends State<EnergyCalculatorScreen> {
   _Activity _activity = _Activity.moderate;
   _Goal _goal = _Goal.maintain;
 
+  /// Tracks whether the user has manually changed _sex, so that a later
+  /// profile-load doesn't overwrite their choice.
+  bool _sexTouchedByUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _weight.addListener(() => setState(() {}));
+    _height.addListener(() => setState(() {}));
+    _age.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _weight.dispose();
     _height.dispose();
     _age.dispose();
     super.dispose();
+  }
+
+  void _seedFromProfile(UserProfile p) {
+    if (_weight.text.isEmpty && p.weightKg != null) {
+      _weight.text = _fmtNum(p.weightKg!);
+    }
+    if (_height.text.isEmpty && p.heightCm != null) {
+      _height.text = _fmtNum(p.heightCm!);
+    }
+    if (_age.text.isEmpty && p.age != null) {
+      _age.text = p.age!.toString();
+    }
+    if (!_sexTouchedByUser && p.gender != Gender.unspecified) {
+      final newSex = p.gender == Gender.male ? _Sex.male : _Sex.female;
+      if (_sex != newSex) setState(() => _sex = newSex);
+    }
   }
 
   double? get _bmr {
@@ -68,6 +100,16 @@ class _EnergyCalculatorScreenState extends State<EnergyCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<UserProfile>(
+      userProfileProvider,
+      (_, next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _seedFromProfile(next);
+        });
+      },
+      fireImmediately: true,
+    );
+
     final bmr = _bmr;
     return CalcScaffold(
       title: 'Energy & Macros',
@@ -93,7 +135,10 @@ class _EnergyCalculatorScreenState extends State<EnergyCalculatorScreen> {
           options: const [_Sex.male, _Sex.female],
           display: (s) => s == _Sex.male ? 'Male' : 'Female',
           value: _sex,
-          onChanged: (v) => setState(() => _sex = v),
+          onChanged: (v) => setState(() {
+            _sex = v;
+            _sexTouchedByUser = true;
+          }),
         ),
         CalcSegment<_Activity>(
           label: 'Activity level',
@@ -160,4 +205,9 @@ class _EnergyCalculatorScreenState extends State<EnergyCalculatorScreen> {
           'kcal. Carbs fill the remainder. Adjust weekly based on the scale.',
     );
   }
+}
+
+String _fmtNum(double v) {
+  if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(1);
 }

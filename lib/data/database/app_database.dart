@@ -7,18 +7,19 @@ import 'package:path/path.dart' as p;
 
 import '../../core/constants/default_exercises.dart';
 import 'tables/exercises_table.dart';
+import 'tables/water_logs_table.dart';
 import 'tables/workout_sets_table.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Exercises, WorkoutSets])
+@DriftDatabase(tables: [Exercises, WorkoutSets, WaterLogs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -41,6 +42,10 @@ class AppDatabase extends _$AppDatabase {
             // have, and repair measurement types on existing defaults.
             await _seedMissingDefaults();
             await _backfillMeasurementTypes();
+          }
+          if (from < 3) {
+            // v3 introduces the water-intake log.
+            await m.createTable(waterLogs);
           }
         },
       );
@@ -256,6 +261,33 @@ class AppDatabase extends _$AppDatabase {
       }
       return records;
     });
+  }
+
+  // ── Water Log Queries ──
+
+  /// Watch today's water entries, newest first.
+  Stream<List<WaterLog>> watchTodayWaterLogs() {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    return (select(waterLogs)
+          ..where((l) => l.loggedAt.isBetweenValues(todayStart, todayEnd))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .watch();
+  }
+
+  Future<int> insertWaterLog(int amountMl) {
+    return into(waterLogs).insert(
+      WaterLogsCompanion.insert(
+        amountMl: amountMl,
+        loggedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<int> deleteWaterLog(int id) {
+    return (delete(waterLogs)..where((l) => l.id.equals(id))).go();
   }
 
   static bool _isBetterPr(WorkoutSet candidate, WorkoutSet current) {
