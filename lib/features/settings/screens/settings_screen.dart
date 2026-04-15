@@ -99,7 +99,7 @@ class SettingsScreen extends ConsumerWidget {
           _SectionHeader(title: 'Tools'),
           _SettingsTile(
             title: 'Calculators',
-            subtitle: 'Energy, BMI, body fat, 1RM, plate loader',
+            subtitle: 'Energy, water, BMI, body fat, 1RM, heart rate',
             icon: Icons.calculate_rounded,
             onTap: () => Navigator.push(
               context,

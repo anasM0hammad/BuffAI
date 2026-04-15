@@ -40,33 +40,14 @@ class ExerciseSection extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: exerciseAsync.when(
         data: (exercise) {
           final type = MeasurementType.fromString(exercise.measurementType);
-          final summary = _buildVolumeSummary(type);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Accent stripe
-              Container(
-                height: 2,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primaryRed, AppColors.primaryDeep],
-                  ),
-                ),
-              ),
-
               // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
@@ -93,7 +74,7 @@ class ExerciseSection extends ConsumerWidget {
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  '$workingSets set${workingSets == 1 ? '' : 's'}$summary',
+                                  '$workingSets set${workingSets == 1 ? '' : 's'}',
                                   style: AppTypography.caption.copyWith(
                                     color: AppColors.textTertiary,
                                   ),
@@ -193,8 +174,6 @@ class ExerciseSection extends ConsumerWidget {
                 error: (_, __) => const SizedBox.shrink(),
               ),
 
-              const Divider(height: 1, indent: 16, endIndent: 16),
-
               // Set rows
               ...sets.map(
                 (set) => SetRow(
@@ -216,31 +195,6 @@ class ExerciseSection extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  /// A terse "•  42 kg" / "•  12:00" etc. suffix to pair with the set count.
-  String _buildVolumeSummary(MeasurementType type) {
-    if (sets.isEmpty) return '';
-    switch (type) {
-      case MeasurementType.weightReps:
-        final vol = sets.fold<double>(0, (s, x) => s + x.weight * x.reps);
-        if (vol <= 0) return '';
-        return '  •  ${formatWeight(vol)}';
-      case MeasurementType.repsBodyweight:
-        final reps = sets.fold<int>(0, (s, x) => s + x.reps);
-        if (reps <= 0) return '';
-        return '  •  $reps reps';
-      case MeasurementType.time:
-      case MeasurementType.weightTime:
-        final secs =
-            sets.fold<int>(0, (s, x) => s + (x.durationSec ?? 0));
-        if (secs <= 0) return '';
-        return '  •  ${formatDuration(secs)}';
-      case MeasurementType.distanceTime:
-        final m = sets.fold<double>(0, (s, x) => s + (x.distanceM ?? 0));
-        if (m <= 0) return '';
-        return '  •  ${formatDistance(m)}';
-    }
   }
 
   Future<void> _confirmDeleteTodaySets(
