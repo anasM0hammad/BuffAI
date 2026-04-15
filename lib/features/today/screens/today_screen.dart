@@ -79,6 +79,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final timerDuration = ref.watch(restTimerDurationProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [

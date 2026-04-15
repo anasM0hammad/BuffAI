@@ -21,27 +21,35 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // We intentionally avoid Scaffold.bottomNavigationBar: on some Android
+    // builds (notably MIUI) a phantom MediaQuery.viewInsets.bottom survives
+    // the onboarding→shell transition, which causes Scaffold to float the
+    // bottom nav half-way up the screen. A plain Column with Expanded gives
+    // us deterministic layout: the stack fills the remaining space and the
+    // nav hugs the bottom no matter what the insets claim.
     return Scaffold(
       backgroundColor: AppColors.background,
-      // IndexedStack preserves each tab's state (scroll, search, etc.).
-      // SizedBox.expand ensures the stack always fills the available space
-      // even if an individual tab's subtree collapses unexpectedly.
-      body: SizedBox.expand(
-        child: IndexedStack(
-          index: _index,
-          children: const [
-            PerformanceScreen(),
-            TodayScreen(),
-            SettingsScreen(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _BuffBottomNav(
-        currentIndex: _index,
-        onTap: (i) {
-          if (i == _index) return;
-          setState(() => _index = i);
-        },
+      resizeToAvoidBottomInset: false,
+      body: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: _index,
+              children: const [
+                PerformanceScreen(),
+                TodayScreen(),
+                SettingsScreen(),
+              ],
+            ),
+          ),
+          _BuffBottomNav(
+            currentIndex: _index,
+            onTap: (i) {
+              if (i == _index) return;
+              setState(() => _index = i);
+            },
+          ),
+        ],
       ),
     );
   }
