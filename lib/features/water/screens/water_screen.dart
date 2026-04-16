@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../data/database/app_database.dart';
 import '../../../data/providers/water_provider.dart';
 
-/// Water intake tab. A big animated beaker at the top, quick-add chips
-/// below, and today's entries in a scrollable list.
+/// Water intake tab. A large animated beaker with volume marks on the
+/// left, progress stats, quick-add chips, and an inline custom-amount
+/// input — all on one screen so logging is one tap away.
 class WaterScreen extends ConsumerStatefulWidget {
   const WaterScreen({super.key});
 
@@ -22,6 +23,9 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
   late final AnimationController _waveController;
   late final AnimationController _levelController;
   late Animation<double> _levelAnimation;
+
+  final _customController = TextEditingController();
+  final _customFocus = FocusNode();
 
   /// The total (in ml) currently represented by the beaker's fill line.
   /// Drives the tween target when the real total changes.
@@ -45,6 +49,8 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
   void dispose() {
     _waveController.dispose();
     _levelController.dispose();
+    _customController.dispose();
+    _customFocus.dispose();
     super.dispose();
   }
 
@@ -65,12 +71,12 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
     await add(ml);
   }
 
-  Future<void> _openCustomAdd() async {
-    final result = await showDialog<int>(
-      context: context,
-      builder: (_) => const _CustomAmountDialog(),
-    );
-    if (result != null) await _add(result);
+  Future<void> _submitCustom() async {
+    final ml = int.tryParse(_customController.text.trim());
+    if (ml == null || ml <= 0 || ml > 5000) return;
+    _customController.clear();
+    _customFocus.unfocus();
+    await _add(ml);
   }
 
   Future<void> _openEditTarget() async {
@@ -88,7 +94,6 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
   Widget build(BuildContext context) {
     final total = ref.watch(todayWaterTotalMlProvider);
     final target = ref.watch(dailyWaterTargetProvider);
-    final logsAsync = ref.watch(todayWaterLogsProvider);
 
     if (_displayedTotal != total) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,10 +102,13 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
     }
 
     final pct = target == 0 ? 0.0 : (total / target).clamp(0.0, 1.25);
+    // Cap scale so the beaker shows comfortable headroom above target
+    // and never lets a big overflow push the fill to the ceiling.
+    final maxMl = math.max(target * 1.1, total.toDouble());
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         automaticallyImplyLeading: false,
@@ -117,15 +125,13 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ── Beaker ──
+            // ── Big beaker ──
             Expanded(
-              flex: 5,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(28, 8, 28, 4),
                 child: Center(
                   child: AspectRatio(
-                    aspectRatio: 0.62,
+                    aspectRatio: 0.72,
                     child: AnimatedBuilder(
                       animation: Listenable.merge([
                         _waveController,
@@ -138,8 +144,7 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
                         return CustomPaint(
                           painter: _BeakerPainter(
                             fillMl: animatedMl,
-                            targetMl: target.toDouble(),
-                            maxMl: math.max(target * 1.1, total.toDouble()),
+                            maxMl: maxMl,
                             wavePhase: _waveController.value * 2 * math.pi,
                           ),
                         );
@@ -158,7 +163,7 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
                   Text(
                     _formatLiters(total),
                     style: AppTypography.sectionHeader.copyWith(
-                      fontSize: 34,
+                      fontSize: 36,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                     ),
@@ -175,7 +180,7 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             // ── Quick add ──
             Padding(
@@ -199,45 +204,19 @@ class _WaterScreenState extends ConsumerState<WaterScreen>
                     icon: Icons.sports_bar_outlined,
                     onTap: () => _add(500),
                   ),
-                  const SizedBox(width: 8),
-                  _QuickAddChip(
-                    label: 'Custom',
-                    icon: Icons.add,
-                    primary: true,
-                    onTap: _openCustomAdd,
-                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // ── Today's log ──
-            Expanded(
-              flex: 4,
-              child: logsAsync.when(
-                data: (logs) {
-                  if (logs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          'No drinks logged yet.\nTap a chip above to start.',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textTertiary),
-                        ),
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                    itemCount: logs.length,
-                    itemBuilder: (_, i) => _WaterLogTile(log: logs[i]),
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (e, _) => Center(child: Text('Error: $e')),
+            // ── Inline custom amount + add CTA ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _CustomAmountBar(
+                controller: _customController,
+                focusNode: _customFocus,
+                onSubmit: _submitCustom,
               ),
             ),
           ],
@@ -258,31 +237,33 @@ String _formatLiters(int ml) {
 
 class _BeakerPainter extends CustomPainter {
   final double fillMl;
-  final double targetMl;
   final double maxMl;
   final double wavePhase;
 
   _BeakerPainter({
     required this.fillMl,
-    required this.targetMl,
     required this.maxMl,
     required this.wavePhase,
   });
+
+  /// Horizontal space reserved on the left of the canvas for volume
+  /// marks and their labels.
+  static const double _labelsArea = 30.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    // The beaker takes the full canvas but with some breathing room at top
-    // for a neck/rim. We draw:
-    //   1. Glass body (rounded rectangle, dark surface, subtle stroke)
-    //   2. Water fill (clipped) with two layered sine waves
-    //   3. Target line (dashed) across the inside
-    //   4. Rim highlight + gloss
-
     final neckH = h * 0.04;
-    final body = Rect.fromLTWH(0, neckH, w, h - neckH);
+    // Shift the actual beaker body to the right so the labels area on
+    // the left has room for tick marks + volume captions.
+    final body = Rect.fromLTWH(
+      _labelsArea,
+      neckH,
+      w - _labelsArea,
+      h - neckH,
+    );
     final bodyRRect = RRect.fromRectAndCorners(
       body,
       topLeft: const Radius.circular(14),
@@ -319,7 +300,7 @@ class _BeakerPainter extends CustomPainter {
       body,
       baselineY: levelY,
       amplitude: rawLevel > 0.01 ? 5 : 0,
-      wavelength: w * 1.1,
+      wavelength: body.width * 1.1,
       phase: wavePhase * 1.3,
       color: const Color(0xFF1E90FF).withOpacity(0.55),
     );
@@ -330,7 +311,7 @@ class _BeakerPainter extends CustomPainter {
       body,
       baselineY: levelY + 2,
       amplitude: rawLevel > 0.01 ? 7 : 0,
-      wavelength: w * 1.4,
+      wavelength: body.width * 1.4,
       phase: -wavePhase,
       color: const Color(0xFF2E9BFF).withOpacity(0.85),
     );
@@ -345,38 +326,15 @@ class _BeakerPainter extends CustomPainter {
             Colors.white.withOpacity(0.18),
             Colors.white.withOpacity(0.0),
           ],
-        ).createShader(Rect.fromLTWH(0, levelY, w, 28));
-      canvas.drawRect(Rect.fromLTWH(0, levelY, w, 28), glossPaint);
+        ).createShader(Rect.fromLTWH(body.left, levelY, body.width, 28));
+      canvas.drawRect(
+          Rect.fromLTWH(body.left, levelY, body.width, 28), glossPaint);
     }
 
     canvas.restore();
 
-    // 3) Target line (inside the glass, dashed)
-    if (targetMl > 0 && targetMl <= maxMl) {
-      final targetY =
-          body.bottom - (targetMl / maxDenom).clamp(0.0, 1.0) * body.height;
-      _drawDashedLine(
-        canvas,
-        Offset(body.left + 12, targetY),
-        Offset(body.right - 12, targetY),
-        AppColors.primaryRed.withOpacity(0.85),
-      );
-
-      // "Target" pill on the right
-      final tp = TextPainter(
-        text: TextSpan(
-          text: 'GOAL',
-          style: TextStyle(
-            color: AppColors.primaryRed,
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(body.right - tp.width - 8, targetY - 11));
-    }
+    // 3) Volume marks on the left of the beaker (outside the body).
+    _drawVolumeMarks(canvas, body);
 
     // 4) Glass stroke (on top of everything)
     final stroke = Paint()
@@ -394,7 +352,8 @@ class _BeakerPainter extends CustomPainter {
           Colors.white.withOpacity(0.18),
           Colors.white.withOpacity(0.02),
         ],
-      ).createShader(Rect.fromLTWH(body.left + 4, body.top + 8, 6, body.height * 0.6));
+      ).createShader(
+          Rect.fromLTWH(body.left + 4, body.top + 8, 6, body.height * 0.6));
     final highlightRRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(body.left + 6, body.top + 10, 4, body.height * 0.55),
       const Radius.circular(3),
@@ -402,13 +361,79 @@ class _BeakerPainter extends CustomPainter {
     canvas.drawRRect(highlightRRect, highlight);
 
     // Rim ellipse to suggest an opening
-    final rimRect =
-        Rect.fromLTWH(body.left + 4, -neckH * 0.5, body.width - 8, neckH * 2);
+    final rimRect = Rect.fromLTWH(
+        body.left + 4, -neckH * 0.5, body.width - 8, neckH * 2);
     final rimPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..color = AppColors.textTertiary.withOpacity(0.75);
     canvas.drawOval(rimRect, rimPaint);
+  }
+
+  /// Ticks + labels at every `step` ml on the left of the beaker.
+  /// Step adapts to the current scale so we never end up with more than
+  /// ~6 labels crammed into the gutter.
+  void _drawVolumeMarks(Canvas canvas, Rect body) {
+    if (maxMl <= 0) return;
+
+    // Pick a step that gives 4–6 labels for any realistic daily scale.
+    final int stepMl;
+    if (maxMl <= 1500) {
+      stepMl = 250;
+    } else if (maxMl <= 3500) {
+      stepMl = 500;
+    } else if (maxMl <= 7000) {
+      stepMl = 1000;
+    } else {
+      stepMl = 2000;
+    }
+
+    final tickPaint = Paint()
+      ..color = AppColors.textTertiary.withOpacity(0.55)
+      ..strokeWidth = 1.0;
+
+    final labelColor = AppColors.textTertiary.withOpacity(0.8);
+
+    // Start at 0 and step up until we pass the scale ceiling.
+    for (int ml = 0; ml <= maxMl; ml += stepMl) {
+      // Skip 0 label — it clutters the bottom and the base of the beaker
+      // already implies zero.
+      final y = body.bottom - (ml / maxMl) * (body.height - 6);
+
+      // Tick: short horizontal line just outside the body's left edge.
+      canvas.drawLine(
+        Offset(body.left - 4, y),
+        Offset(body.left, y),
+        tickPaint,
+      );
+
+      if (ml == 0) continue;
+
+      final label = _formatMark(ml);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: labelColor,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      // Right-align the label into the gutter.
+      tp.paint(
+        canvas,
+        Offset(body.left - 6 - tp.width, y - tp.height / 2),
+      );
+    }
+  }
+
+  String _formatMark(int ml) {
+    final l = ml / 1000.0;
+    if (l == l.roundToDouble()) return '${l.toInt()}L';
+    return '${l.toStringAsFixed(1)}L';
   }
 
   void _drawWave(
@@ -427,9 +452,8 @@ class _BeakerPainter extends CustomPainter {
     const step = 3.0;
     for (double x = body.left; x <= body.right; x += step) {
       final dx = x - body.left;
-      final y =
-          baselineY + math.sin((dx / wavelength) * 2 * math.pi + phase) *
-              amplitude;
+      final y = baselineY +
+          math.sin((dx / wavelength) * 2 * math.pi + phase) * amplitude;
       path.lineTo(x, y);
     }
 
@@ -439,54 +463,30 @@ class _BeakerPainter extends CustomPainter {
     canvas.drawPath(path, Paint()..color = color);
   }
 
-  void _drawDashedLine(Canvas canvas, Offset a, Offset b, Color color) {
-    const dashLen = 6.0;
-    const gap = 4.0;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.3
-      ..style = PaintingStyle.stroke;
-
-    final dx = b.dx - a.dx;
-    final total = dx.abs();
-    double drawn = 0;
-    while (drawn < total) {
-      final start = Offset(a.dx + drawn, a.dy);
-      final endX = a.dx + math.min(drawn + dashLen, total);
-      canvas.drawLine(start, Offset(endX, a.dy), paint);
-      drawn += dashLen + gap;
-    }
-  }
-
   @override
   bool shouldRepaint(covariant _BeakerPainter old) =>
       old.fillMl != fillMl ||
-      old.targetMl != targetMl ||
       old.maxMl != maxMl ||
       old.wavePhase != wavePhase;
 }
 
 // ════════════════════════════════════════════════════════════
-// Chip + tile widgets
+// Chip + inline input widgets
 // ════════════════════════════════════════════════════════════
 
 class _QuickAddChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final bool primary;
 
   const _QuickAddChip({
     required this.label,
     required this.icon,
     required this.onTap,
-    this.primary = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bg = primary ? AppColors.primaryRed : AppColors.surface;
-    final fg = primary ? Colors.white : AppColors.textPrimary;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -494,25 +494,20 @@ class _QuickAddChip extends StatelessWidget {
         child: Container(
           height: 56,
           decoration: BoxDecoration(
-            color: bg,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: primary
-                  ? Colors.transparent
-                  : AppColors.divider,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.divider, width: 1),
           ),
           alignment: Alignment.center,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: fg),
+              Icon(icon, size: 18, color: AppColors.textPrimary),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: AppTypography.caption.copyWith(
-                  color: fg,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
                   fontSize: 11,
                 ),
@@ -525,128 +520,106 @@ class _QuickAddChip extends StatelessWidget {
   }
 }
 
-class _WaterLogTile extends ConsumerWidget {
-  final WaterLog log;
-  const _WaterLogTile({required this.log});
+/// Inline amount input + red Add button. Replaces the old "Custom"
+/// modal dialog for lower-friction logging.
+class _CustomAmountBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onSubmit;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final time = TimeOfDay.fromDateTime(log.loggedAt).format(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E90FF).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.water_drop,
-                size: 16, color: Color(0xFF2E9BFF)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${log.amountMl} ml',
-                    style: AppTypography.body
-                        .copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(time,
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textTertiary)),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close,
-                color: AppColors.textTertiary, size: 18),
-            onPressed: () =>
-                ref.read(deleteWaterLogProvider)(log.id),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════
-// Dialogs
-// ════════════════════════════════════════════════════════════
-
-class _CustomAmountDialog extends StatefulWidget {
-  const _CustomAmountDialog();
-
-  @override
-  State<_CustomAmountDialog> createState() => _CustomAmountDialogState();
-}
-
-class _CustomAmountDialogState extends State<_CustomAmountDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final ml = int.tryParse(_controller.text.trim());
-    if (ml == null || ml <= 0 || ml > 5000) return;
-    Navigator.pop(context, ml);
-  }
+  const _CustomAmountBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onSubmit,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surfaceElevated,
-      title: Text('Add water', style: AppTypography.cardTitle),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        onSubmitted: (_) => _submit(),
-        style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
-        cursorColor: AppColors.primaryRed,
-        decoration: InputDecoration(
-          hintText: 'e.g. 350',
-          suffixText: 'ml',
-          hintStyle: AppTypography.body
-              .copyWith(color: AppColors.textTertiary),
-          enabledBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: AppColors.divider),
-          ),
-          focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: AppColors.primaryRed),
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.divider, width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.water_drop_outlined,
+                    color: AppColors.textTertiary, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => onSubmit(),
+                    style: AppTypography.body
+                        .copyWith(fontWeight: FontWeight.w600),
+                    cursorColor: AppColors.primaryRed,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: 'Custom amount',
+                      hintStyle: AppTypography.body.copyWith(
+                        color: AppColors.textTertiary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  'ml',
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textTertiary),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel',
-              style: AppTypography.body
-                  .copyWith(color: AppColors.textSecondary)),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text('Add',
-              style: AppTypography.body
-                  .copyWith(color: AppColors.primaryRed)),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: 52,
+          child: ElevatedButton(
+            onPressed: onSubmit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryRed,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add, size: 18, color: Colors.white),
+                const SizedBox(width: 4),
+                Text(
+                  'Log',
+                  style: AppTypography.body.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 }
+
+// ════════════════════════════════════════════════════════════
+// Target dialog (still accessed via the flag icon in the AppBar)
+// ════════════════════════════════════════════════════════════
 
 class _TargetDialog extends StatefulWidget {
   final int initial;
@@ -700,12 +673,12 @@ class _TargetDialogState extends State<_TargetDialog> {
             cursorColor: AppColors.primaryRed,
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               suffixText: 'ml',
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: AppColors.divider),
               ),
-              focusedBorder: const UnderlineInputBorder(
+              focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: AppColors.primaryRed),
               ),
             ),
@@ -722,21 +695,16 @@ class _TargetDialogState extends State<_TargetDialog> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active
-                        ? AppColors.primaryRed
-                        : AppColors.surface,
+                    color: active ? AppColors.primaryRed : AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: active
-                          ? Colors.transparent
-                          : AppColors.divider,
+                      color: active ? Colors.transparent : AppColors.divider,
                     ),
                   ),
                   child: Text(
                     '${(p / 1000).toStringAsFixed(p % 1000 == 0 ? 1 : 2)} L',
                     style: AppTypography.caption.copyWith(
-                      color:
-                          active ? Colors.white : AppColors.textSecondary,
+                      color: active ? Colors.white : AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -756,8 +724,8 @@ class _TargetDialogState extends State<_TargetDialog> {
         TextButton(
           onPressed: _submit,
           child: Text('Save',
-              style: AppTypography.body
-                  .copyWith(color: AppColors.primaryRed)),
+              style:
+                  AppTypography.body.copyWith(color: AppColors.primaryRed)),
         ),
       ],
     );

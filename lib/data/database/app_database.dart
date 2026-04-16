@@ -311,6 +311,21 @@ class AppDatabase extends _$AppDatabase {
     return (delete(waterLogs)..where((l) => l.id.equals(id))).go();
   }
 
+  // ── Bulk Reset ──
+
+  /// Wipes every user-generated log (workout sets, water entries) and
+  /// the user-created custom exercises. The curated default exercise
+  /// library is preserved so the user can immediately resume logging.
+  /// Profile data and simple app preferences are stored outside the
+  /// database and are untouched by this call.
+  Future<void> resetAllLoggedData() async {
+    await transaction(() async {
+      await delete(workoutSets).go();
+      await delete(waterLogs).go();
+      await (delete(exercises)..where((e) => e.isCustom.equals(true))).go();
+    });
+  }
+
   static bool _isBetterPr(WorkoutSet candidate, WorkoutSet current) {
     // Distance-based (e.g. rowing): prefer longer distance, then faster time.
     if (candidate.distanceM != null || current.distanceM != null) {

@@ -559,6 +559,15 @@ class _WorkoutDayTile extends StatelessWidget {
                         '$totalSets ${totalSets == 1 ? 'set' : 'sets'}',
                         style: AppTypography.caption,
                       ),
+                      if (order.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _MuscleGroupChips(
+                          groups: [
+                            for (final id in order)
+                              exerciseById[id]?.muscleGroup ?? 'Other',
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -717,6 +726,55 @@ class _ExerciseBlock extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Horizontal strip of small muscle-group pill chips shown in the
+/// collapsed workout-day tile. Order is preserved and duplicates are
+/// kept intentionally so the user can see "3 chest, 1 back" at a
+/// glance without expanding.
+class _MuscleGroupChips extends StatelessWidget {
+  final List<String> groups;
+  const _MuscleGroupChips({required this.groups});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final g in groups) _MuscleChip(label: g),
+      ],
+    );
+  }
+}
+
+class _MuscleChip extends StatelessWidget {
+  final String label;
+  const _MuscleChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: AppColors.primaryRed.withOpacity(0.25),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.caption.copyWith(
+          color: AppColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }

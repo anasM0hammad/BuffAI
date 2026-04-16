@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/providers/database_provider.dart';
 import '../../calculators/screens/calculators_screen.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../today/screens/today_screen.dart';
@@ -126,6 +127,177 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+
+          const SizedBox(height: 16),
+
+          // Data management — destructive, kept visually distinct.
+          _SectionHeader(title: 'Data'),
+          _SettingsTile(
+            title: 'Reset data',
+            subtitle:
+                'Delete all workout and water logs. Profile is kept.',
+            icon: Icons.delete_forever_rounded,
+            destructive: true,
+            onTap: () => _confirmReset(context, ref),
+          ),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ResetConfirmDialog(),
+    );
+    if (confirmed != true) return;
+    final db = ref.read(databaseProvider);
+    await db.resetAllLoggedData();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.surfaceElevated,
+        content: Text(
+          'All logged data cleared.',
+          style: AppTypography.body,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+/// Modal that requires explicit confirmation before wiping data.
+class _ResetConfirmDialog extends StatelessWidget {
+  const _ResetConfirmDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      title: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.primaryRed,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Reset all data?',
+              style: AppTypography.cardTitle,
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This will permanently delete:',
+            style: AppTypography.body
+                .copyWith(color: AppColors.textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          const _ResetBullet('Every logged workout set'),
+          const _ResetBullet('Every water-intake entry'),
+          const _ResetBullet('Any custom exercises you created'),
+          const SizedBox(height: 12),
+          Text(
+            'Your profile, preferences and the built-in exercise library '
+            'are kept. This cannot be undone.',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textTertiary,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.textSecondary,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+          child: Text(
+            'Cancel',
+            style:
+                AppTypography.body.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            'Delete',
+            style: AppTypography.body.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResetBullet extends StatelessWidget {
+  final String text;
+  const _ResetBullet(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 7, right: 8),
+            child: Icon(
+              Icons.fiber_manual_record,
+              size: 5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.body.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -158,15 +330,28 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
+  /// Renders the title + icon in the brand red. Used for destructive
+  /// actions like "Reset data".
+  final bool destructive;
+
   const _SettingsTile({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = destructive ? AppColors.primaryRed : AppColors.textSecondary;
+    final titleStyle = destructive
+        ? AppTypography.body.copyWith(
+            color: AppColors.primaryRed,
+            fontWeight: FontWeight.w600,
+          )
+        : AppTypography.body;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -175,16 +360,22 @@ class _SettingsTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
+          border: destructive
+              ? Border.all(
+                  color: AppColors.primaryRed.withOpacity(0.25),
+                  width: 1,
+                )
+              : null,
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textSecondary, size: 22),
+            Icon(icon, color: iconColor, size: 22),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppTypography.body),
+                  Text(title, style: titleStyle),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
