@@ -21,6 +21,9 @@ class _BmiCalculatorScreenState extends ConsumerState<BmiCalculatorScreen> {
     super.initState();
     _weight.addListener(() => setState(() {}));
     _height.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _seedFromProfile(ref.read(userProfileProvider));
+    });
   }
 
   @override
@@ -65,7 +68,6 @@ class _BmiCalculatorScreenState extends ConsumerState<BmiCalculatorScreen> {
           if (mounted) _seedFromProfile(next);
         });
       },
-      fireImmediately: true,
     );
 
     final bmi = _bmi;

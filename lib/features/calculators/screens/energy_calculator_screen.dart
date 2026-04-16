@@ -61,6 +61,9 @@ class _EnergyCalculatorScreenState
     _weight.addListener(() => setState(() {}));
     _height.addListener(() => setState(() {}));
     _age.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _seedFromProfile(ref.read(userProfileProvider));
+    });
   }
 
   @override
@@ -108,7 +111,6 @@ class _EnergyCalculatorScreenState
           if (mounted) _seedFromProfile(next);
         });
       },
-      fireImmediately: true,
     );
 
     final bmr = _bmr;

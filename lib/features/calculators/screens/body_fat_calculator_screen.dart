@@ -34,6 +34,9 @@ class _BodyFatCalculatorScreenState
     _neck.addListener(() => setState(() {}));
     _waist.addListener(() => setState(() {}));
     _hip.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _seedFromProfile(ref.read(userProfileProvider));
+    });
   }
 
   @override
@@ -110,7 +113,6 @@ class _BodyFatCalculatorScreenState
           if (mounted) _seedFromProfile(next);
         });
       },
-      fireImmediately: true,
     );
 
     final result = _calc();

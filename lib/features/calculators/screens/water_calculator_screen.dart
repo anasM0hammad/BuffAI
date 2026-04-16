@@ -53,6 +53,9 @@ class _WaterCalculatorScreenState
     super.initState();
     _weight.addListener(_update);
     _height.addListener(_update);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _seedFromProfile(ref.read(userProfileProvider));
+    });
   }
 
   void _update() => setState(() {});
@@ -104,7 +107,6 @@ class _WaterCalculatorScreenState
           if (mounted) _seedFromProfile(next);
         });
       },
-      fireImmediately: true,
     );
 
     final liters = _liters();
