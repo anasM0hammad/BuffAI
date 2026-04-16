@@ -31,6 +31,9 @@ class _HeartRateCalculatorScreenState
     super.initState();
     _age.addListener(_update);
     _resting.addListener(_update);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _seedFromProfile(ref.read(userProfileProvider));
+    });
   }
 
   void _update() => setState(() {});
@@ -83,7 +86,6 @@ class _HeartRateCalculatorScreenState
           if (mounted) _seedFromProfile(next);
         });
       },
-      fireImmediately: true,
     );
 
     final result = _compute();
