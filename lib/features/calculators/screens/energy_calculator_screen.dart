@@ -78,8 +78,9 @@ class _EnergyCalculatorScreenState
     if (_height.text.isEmpty && p.heightCm != null) {
       _height.text = _fmtNum(p.heightCm!);
     }
-    if (_age.text.isEmpty && p.age != null) {
-      _age.text = p.age!.toString();
+    final derivedAge = p.effectiveAge;
+    if (_age.text.isEmpty && derivedAge != null) {
+      _age.text = derivedAge.toString();
     }
     if (!_sexTouchedByUser && p.gender != Gender.unspecified) {
       final newSex = p.gender == Gender.male ? _Sex.male : _Sex.female;

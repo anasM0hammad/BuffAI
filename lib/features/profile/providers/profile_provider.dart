@@ -12,12 +12,14 @@ class UserProfile {
   final double? heightCm;
   final double? weightKg;
   final int? age;
+  final DateTime? dob;
   final Gender gender;
 
   const UserProfile({
     this.heightCm,
     this.weightKg,
     this.age,
+    this.dob,
     this.gender = Gender.unspecified,
   });
 
@@ -27,7 +29,23 @@ class UserProfile {
       heightCm == null &&
       weightKg == null &&
       age == null &&
+      dob == null &&
       gender == Gender.unspecified;
+
+  /// Current age in years. Computed from DOB when available, otherwise
+  /// falls back to the manually-entered `age` field. Returns null when
+  /// neither is set.
+  int? get effectiveAge {
+    if (dob != null) {
+      final now = DateTime.now();
+      var a = now.year - dob!.year;
+      final hadBirthdayThisYear = (now.month > dob!.month) ||
+          (now.month == dob!.month && now.day >= dob!.day);
+      if (!hadBirthdayThisYear) a -= 1;
+      return a > 0 ? a : null;
+    }
+    return age;
+  }
 
   /// Short one-line summary for Settings, e.g. "170 cm · 72 kg · 28 · Male".
   /// Returns null when nothing is filled in.
@@ -35,7 +53,8 @@ class UserProfile {
     final parts = <String>[];
     if (heightCm != null) parts.add('${_fmtNum(heightCm!)} cm');
     if (weightKg != null) parts.add('${_fmtNum(weightKg!)} kg');
-    if (age != null) parts.add('$age');
+    final a = effectiveAge;
+    if (a != null) parts.add('$a');
     if (gender != Gender.unspecified) {
       parts.add(gender == Gender.male ? 'Male' : 'Female');
     }
@@ -53,6 +72,7 @@ String _fmtNum(double v) {
 const _kHeight = 'profile_height_cm';
 const _kWeight = 'profile_weight_kg';
 const _kAge = 'profile_age';
+const _kDob = 'profile_dob_iso';
 const _kGender = 'profile_gender';
 
 /// Loads the persisted profile once at app start. Consumed by
@@ -65,10 +85,13 @@ final _persistedProfileProvider = FutureProvider<UserProfile>((ref) async {
     'female' => Gender.female,
     _ => Gender.unspecified,
   };
+  final dobStr = prefs.getString(_kDob);
+  final dob = dobStr == null ? null : DateTime.tryParse(dobStr);
   return UserProfile(
     heightCm: prefs.getDouble(_kHeight),
     weightKg: prefs.getDouble(_kWeight),
     age: prefs.getInt(_kAge),
+    dob: dob,
     gender: gender,
   );
 });
@@ -107,6 +130,12 @@ class UserProfileNotifier extends StateNotifier<UserProfile> {
       await prefs.remove(_kAge);
     } else {
       await prefs.setInt(_kAge, profile.age!);
+    }
+
+    if (profile.dob == null) {
+      await prefs.remove(_kDob);
+    } else {
+      await prefs.setString(_kDob, profile.dob!.toIso8601String());
     }
 
     if (profile.gender == Gender.unspecified) {

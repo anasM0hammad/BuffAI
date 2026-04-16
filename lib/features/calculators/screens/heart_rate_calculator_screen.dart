@@ -36,8 +36,9 @@ class _HeartRateCalculatorScreenState
   void _update() => setState(() {});
 
   void _seedFromProfile(UserProfile p) {
-    if (_age.text.isEmpty && p.age != null) {
-      _age.text = p.age!.toString();
+    final derivedAge = p.effectiveAge;
+    if (_age.text.isEmpty && derivedAge != null) {
+      _age.text = derivedAge.toString();
     }
   }
 
