@@ -263,6 +263,18 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// All sets logged on or after [since] (inclusive), newest first. Used
+  /// by the History tab to group sessions by day.
+  Stream<List<WorkoutSet>> watchSetsSince(DateTime since) {
+    return (select(workoutSets)
+          ..where((s) => s.loggedAt.isBiggerOrEqualValue(since))
+          ..orderBy([
+            (s) => OrderingTerm.desc(s.loggedAt),
+            (s) => OrderingTerm(expression: s.setNumber),
+          ]))
+        .watch();
+  }
+
   // ── Water Log Queries ──
 
   /// Watch today's water entries, newest first.
@@ -273,6 +285,15 @@ class AppDatabase extends _$AppDatabase {
 
     return (select(waterLogs)
           ..where((l) => l.loggedAt.isBetweenValues(todayStart, todayEnd))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .watch();
+  }
+
+  /// Watch all water entries from [since] onwards (inclusive), newest
+  /// first. Used by the History tab to build per-day totals.
+  Stream<List<WaterLog>> watchWaterLogsSince(DateTime since) {
+    return (select(waterLogs)
+          ..where((l) => l.loggedAt.isBiggerOrEqualValue(since))
           ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
         .watch();
   }

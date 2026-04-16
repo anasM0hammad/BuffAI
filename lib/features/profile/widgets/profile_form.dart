@@ -20,6 +20,7 @@ class ProfileFormController {
   final TextEditingController height = TextEditingController();
   final TextEditingController weight = TextEditingController();
   final TextEditingController age = TextEditingController();
+  DateTime? dob;
   Gender gender = Gender.unspecified;
 
   ProfileFormController([UserProfile? initial]) {
@@ -30,6 +31,7 @@ class ProfileFormController {
     height.text = _fmt(profile.heightCm);
     weight.text = _fmt(profile.weightKg);
     age.text = profile.age?.toString() ?? '';
+    dob = profile.dob;
     gender = profile.gender;
   }
 
@@ -46,10 +48,13 @@ class ProfileFormController {
       return v;
     }
 
+    // When DOB is picked we don't persist the manual `age` — DOB is the
+    // source of truth and the profile derives age from it at read time.
     return UserProfile(
       heightCm: parseD(height.text),
       weightKg: parseD(weight.text),
-      age: parseI(age.text),
+      age: dob == null ? parseI(age.text) : null,
+      dob: dob,
       gender: gender,
     );
   }
@@ -68,8 +73,56 @@ class ProfileFormController {
 }
 
 class _ProfileFormState extends State<ProfileForm> {
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final initial = widget.controller.dob ?? DateTime(now.year - 25, 1, 1);
+    final first = DateTime(now.year - 110, 1, 1);
+    final last = DateTime(now.year, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(first)
+          ? first
+          : (initial.isAfter(last) ? last : initial),
+      firstDate: first,
+      lastDate: last,
+      helpText: 'DATE OF BIRTH',
+      fieldLabelText: 'Date of birth',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.primaryRed,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textPrimary,
+            ),
+            dialogBackgroundColor: AppColors.background,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        widget.controller.dob = picked;
+        // DOB wins — clear the manual age so the two don't drift apart.
+        widget.controller.age.text = '';
+      });
+    }
+  }
+
+  void _clearDob() {
+    setState(() {
+      widget.controller.dob = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dob = widget.controller.dob;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -94,12 +147,31 @@ class _ProfileFormState extends State<ProfileForm> {
           ],
         ),
         const SizedBox(height: 14),
-        _ProfileField(
-          label: 'Age',
-          suffix: 'years',
-          controller: widget.controller.age,
-          allowDecimal: false,
+        const _FieldLabel('Date of birth'),
+        const SizedBox(height: 6),
+        _DobTile(
+          dob: dob,
+          onPick: _pickDob,
+          onClear: _clearDob,
         ),
+        if (dob == null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: Text(
+              'Or just type your age below.',
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textTertiary),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _ProfileField(
+            label: 'Age',
+            suffix: 'years',
+            controller: widget.controller.age,
+            allowDecimal: false,
+          ),
+        ],
         const SizedBox(height: 14),
         const _FieldLabel('Gender'),
         const SizedBox(height: 6),
@@ -137,6 +209,104 @@ class _ProfileFormState extends State<ProfileForm> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Tappable tile showing the picked DOB (with derived age) or a prompt
+/// to pick one. A clear button appears once a date is set.
+class _DobTile extends StatelessWidget {
+  final DateTime? dob;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  const _DobTile({
+    required this.dob,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  String _formatDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  int _ageFrom(DateTime d) {
+    final now = DateTime.now();
+    var a = now.year - d.year;
+    final hadBirthday = (now.month > d.month) ||
+        (now.month == d.month && now.day >= d.day);
+    if (!hadBirthday) a -= 1;
+    return a;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasDob = dob != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPick,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.divider, width: 1),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.cake_outlined,
+                  size: 18, color: AppColors.textTertiary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: hasDob
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatDate(dob!),
+                            style: AppTypography.body
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_ageFrom(dob!)} years old',
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textTertiary),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        'Pick your birth date',
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.textTertiary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+              ),
+              if (hasDob)
+                IconButton(
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: AppColors.textTertiary,
+                  splashRadius: 20,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                )
+              else
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.textTertiary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
