@@ -400,7 +400,7 @@ String _compactSet(WorkoutSet s, MeasurementType t) {
   String base;
   switch (t) {
     case MeasurementType.weightReps:
-      base = '${_num(s.weight)}×${s.reps}';
+      base = '${_num(s.weight)}kg × ${s.reps}';
       break;
     case MeasurementType.repsBodyweight:
       final added = s.addedWeight ?? 0;
