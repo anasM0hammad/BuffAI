@@ -46,6 +46,9 @@ String formatSetSummary(double weight, int reps, {bool useLbs = false}) {
 }
 
 /// Formats a duration in seconds as `M:SS` (or `H:MM:SS` when ≥ 1h).
+/// Use for compact / input-field contexts where the abbreviated form
+/// is unambiguous in context (e.g. the duration input on a log-set
+/// sheet, timer-style readouts).
 String formatDuration(int totalSeconds) {
   if (totalSeconds < 0) totalSeconds = 0;
   final h = totalSeconds ~/ 3600;
@@ -55,6 +58,28 @@ String formatDuration(int totalSeconds) {
     return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
   return '$m:${s.toString().padLeft(2, '0')}';
+}
+
+/// Human-readable duration label — e.g. `2min 02sec`, `45sec`,
+/// `1hr 05min`. Use wherever a logged time is shown to the user to
+/// avoid the `2:02` / `0:02` ambiguity of the colon-separated form.
+String formatDurationLabel(int totalSeconds) {
+  if (totalSeconds < 0) totalSeconds = 0;
+  if (totalSeconds == 0) return '0sec';
+  final h = totalSeconds ~/ 3600;
+  final m = (totalSeconds % 3600) ~/ 60;
+  final s = totalSeconds % 60;
+  final parts = <String>[];
+  if (h > 0) parts.add('${h}hr');
+  if (m > 0) {
+    parts.add(h > 0 ? '${m.toString().padLeft(2, '0')}min' : '${m}min');
+  }
+  if (s > 0) {
+    parts.add(
+      (h > 0 || m > 0) ? '${s.toString().padLeft(2, '0')}sec' : '${s}sec',
+    );
+  }
+  return parts.join(' ');
 }
 
 /// Parses an `M:SS`, `H:MM:SS`, or raw seconds string into total seconds.
@@ -101,13 +126,13 @@ String formatSetMetrics(WorkoutSet set, MeasurementType type,
       }
       return '${set.reps} reps';
     case MeasurementType.time:
-      return formatDuration(set.durationSec ?? 0);
+      return formatDurationLabel(set.durationSec ?? 0);
     case MeasurementType.weightTime:
       final weight = set.weight == 0 ? '' : '${formatWeight(set.weight, useLbs: useLbs)} · ';
-      return '$weight${formatDuration(set.durationSec ?? 0)}';
+      return '$weight${formatDurationLabel(set.durationSec ?? 0)}';
     case MeasurementType.distanceTime:
       final dist = formatDistance(set.distanceM ?? 0);
-      final dur = formatDuration(set.durationSec ?? 0);
+      final dur = formatDurationLabel(set.durationSec ?? 0);
       return '$dist · $dur';
   }
 }

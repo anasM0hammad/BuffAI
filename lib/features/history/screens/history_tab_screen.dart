@@ -563,10 +563,10 @@ class _WorkoutDayTile extends StatelessWidget {
                       if (order.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _MuscleGroupChips(
-                          groups: [
+                          groups: {
                             for (final id in order)
                               exerciseById[id]?.muscleGroup ?? 'Other',
-                          ],
+                          }.toList(),
                         ),
                       ],
                     ],
@@ -812,9 +812,8 @@ class _ShareWorkoutButtonState extends State<_ShareWorkoutButton> {
 }
 
 /// Horizontal strip of small muscle-group pill chips shown in the
-/// collapsed workout-day tile. Order is preserved and duplicates are
-/// kept intentionally so the user can see "3 chest, 1 back" at a
-/// glance without expanding.
+/// collapsed workout-day tile. Unique groups only, preserved in
+/// order-of-first-appearance so the chips read like a session summary.
 class _MuscleGroupChips extends StatelessWidget {
   final List<String> groups;
   const _MuscleGroupChips({required this.groups});
