@@ -9,6 +9,7 @@ import '../../../data/database/app_database.dart';
 import '../../../data/providers/exercises_provider.dart';
 import '../../../data/providers/history_provider.dart';
 import '../../../data/providers/water_provider.dart';
+import '../services/workout_share_service.dart';
 
 /// Weekly water chart on top, a scrollable list of workout days below.
 /// Each day is an [ExpansionTile] that opens to show every exercise done
@@ -571,6 +572,10 @@ class _WorkoutDayTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                _ShareWorkoutButton(
+                  day: day,
+                  exerciseById: exerciseById,
+                ),
               ],
             ),
             children: [
@@ -726,6 +731,81 @@ class _ExerciseBlock extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small share button sitting at the end of each workout day's row.
+/// Tapping it renders the whole session to PNG and forwards it to the
+/// native share sheet (WhatsApp, email, Messages, etc).
+class _ShareWorkoutButton extends StatefulWidget {
+  final WorkoutDay day;
+  final Map<int, Exercise> exerciseById;
+
+  const _ShareWorkoutButton({
+    required this.day,
+    required this.exerciseById,
+  });
+
+  @override
+  State<_ShareWorkoutButton> createState() => _ShareWorkoutButtonState();
+}
+
+class _ShareWorkoutButtonState extends State<_ShareWorkoutButton> {
+  bool _busy = false;
+
+  Future<void> _onTap() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await WorkoutShareService.shareWorkoutDay(
+        day: widget.day,
+        exerciseById: widget.exerciseById,
+      );
+    } catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('Couldn\'t share workout: $e'),
+          backgroundColor: AppColors.surfaceElevated,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryRed,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.ios_share_rounded,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }
