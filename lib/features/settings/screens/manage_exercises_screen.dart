@@ -424,7 +424,6 @@ class _ExerciseTile extends ConsumerWidget {
                   IconButton(
                     icon: const Icon(Icons.edit_outlined,
                         color: AppColors.textSecondary, size: 20),
-                    tooltip: 'Edit',
                     onPressed: () => _showExerciseDialog(
                       context,
                       ref,
@@ -434,7 +433,6 @@ class _ExerciseTile extends ConsumerWidget {
                   IconButton(
                     icon: const Icon(Icons.delete_outline,
                         color: AppColors.textSecondary, size: 20),
-                    tooltip: 'Delete',
                     onPressed: () => _confirmDelete(context, ref),
                   ),
                 ],

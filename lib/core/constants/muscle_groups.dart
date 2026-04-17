@@ -6,6 +6,7 @@ enum MuscleGroup {
   triceps('Triceps'),
   shoulders('Shoulders'),
   abs('Abs'),
+  cardio('Cardio'),
   other('Other');
 
   const MuscleGroup(this.displayName);

@@ -113,7 +113,7 @@ const List<DefaultExercise> defaultExercises = [
   DefaultExercise('Cable Crunch', MuscleGroup.abs),
   DefaultExercise('Weighted Russian Twist', MuscleGroup.abs),
 
-  // ── Other (carries, cardio, conditioning) ─────────────────────────
+  // ── Other (carries, conditioning) ─────────────────────────────────
   DefaultExercise(
       "Farmer's Walk", MuscleGroup.other, MeasurementType.weightTime),
   DefaultExercise(
@@ -123,15 +123,23 @@ const List<DefaultExercise> defaultExercises = [
   DefaultExercise('Dead Hang', MuscleGroup.other, MeasurementType.time),
   DefaultExercise(
       'Weighted Dead Hang', MuscleGroup.other, MeasurementType.weightTime),
+
+  // ── Cardio ────────────────────────────────────────────────────────
   DefaultExercise(
-      'Running', MuscleGroup.other, MeasurementType.distanceTime),
+      'Running', MuscleGroup.cardio, MeasurementType.distanceTime),
   DefaultExercise(
-      'Treadmill', MuscleGroup.other, MeasurementType.distanceTime),
+      'Treadmill', MuscleGroup.cardio, MeasurementType.distanceTime),
   DefaultExercise(
-      'Rowing (Erg)', MuscleGroup.other, MeasurementType.distanceTime),
+      'Rowing (Erg)', MuscleGroup.cardio, MeasurementType.distanceTime),
   DefaultExercise(
-      'Assault Bike', MuscleGroup.other, MeasurementType.distanceTime),
-  DefaultExercise('Cycling', MuscleGroup.other, MeasurementType.distanceTime),
-  DefaultExercise('Jump Rope', MuscleGroup.other, MeasurementType.time),
-  DefaultExercise('Stair Climber', MuscleGroup.other, MeasurementType.time),
+      'Assault Bike', MuscleGroup.cardio, MeasurementType.distanceTime),
+  DefaultExercise(
+      'Cycling', MuscleGroup.cardio, MeasurementType.distanceTime),
+  DefaultExercise('Jump Rope', MuscleGroup.cardio, MeasurementType.time),
+  DefaultExercise(
+      'Stair Climber', MuscleGroup.cardio, MeasurementType.time),
+  DefaultExercise(
+      'Elliptical', MuscleGroup.cardio, MeasurementType.distanceTime),
+  DefaultExercise(
+      'Swimming', MuscleGroup.cardio, MeasurementType.distanceTime),
 ];
