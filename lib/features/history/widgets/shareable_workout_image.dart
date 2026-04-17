@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/measurement_type.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/providers/history_provider.dart';
 
 /// Off-screen widget rendered to PNG for the "share workout" feature.
 ///
-/// Designed for a fixed logical width (typically 360 dp) with unbounded
-/// height so the image captures every exercise no matter how long the
-/// session was. Mirrors the app's dark theme so shared images look
-/// identical to the in-app UI.
+/// Dense, minimal layout: one row per exercise with all sets on the
+/// same row (wrapping if there are many). Keeps a 5-exercise session
+/// to roughly a 6:5 aspect ratio — no per-card borders, no wasted
+/// vertical padding. Dark theme with red accents for brand recognition.
 class ShareableWorkoutImage extends StatelessWidget {
   final WorkoutDay day;
   final Map<int, Exercise> exerciseById;
 
-  /// Fixed logical width of the rendered card. 360 dp matches common
-  /// mobile widths and keeps the capture readable on chat previews.
-  static const double width = 360;
+  static const double width = 380;
 
   const ShareableWorkoutImage({
     super.key,
@@ -29,7 +27,6 @@ class ShareableWorkoutImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Preserve order-of-first-appearance for exercises that day.
     final order = <int>[];
     final grouped = <int, List<WorkoutSet>>{};
     for (final s in day.sets) {
@@ -40,91 +37,99 @@ class ShareableWorkoutImage extends StatelessWidget {
     }
 
     final totalSets = day.sets.where((s) => s.parentSetId == null).length;
-    final exerciseCount = order.length;
 
     return Container(
       width: width,
       color: AppColors.background,
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _Branding(),
-          const SizedBox(height: 16),
-          _DayHeader(
-            day: day.day,
-            exerciseCount: exerciseCount,
-            totalSets: totalSets,
+          const _Header(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: _SessionMeta(
+              day: day.day,
+              exerciseCount: order.length,
+              totalSets: totalSets,
+            ),
           ),
-          const SizedBox(height: 14),
-          for (int i = 0; i < order.length; i++) ...[
-            _ExerciseBlock(
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 10, 20, 4),
+            child: _AccentRule(),
+          ),
+          for (int i = 0; i < order.length; i++)
+            _ExerciseRow(
+              index: i + 1,
               exercise: exerciseById[order[i]],
               sets: grouped[order[i]]!,
             ),
-            if (i != order.length - 1) const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           const _Footer(),
+          const SizedBox(height: 14),
         ],
       ),
     );
   }
 }
 
-class _Branding extends StatelessWidget {
-  const _Branding();
+class _Header extends StatelessWidget {
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            'assets/images/logo.png',
-            width: 36,
-            height: 36,
-            fit: BoxFit.cover,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.primaryRed, width: 2),
+        ),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 28,
+              height: 28,
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'BuffAI',
-              style: AppTypography.sectionHeader.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                height: 1.0,
-              ),
+          const SizedBox(width: 10),
+          Text(
+            'BuffAI',
+            style: AppTypography.sectionHeader.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+              height: 1.0,
             ),
-            const SizedBox(height: 2),
-            Text(
-              'WORKOUT LOG',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.primaryRed,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
+          ),
+          const Spacer(),
+          Text(
+            'WORKOUT',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.primaryRed,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              height: 1.0,
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DayHeader extends StatelessWidget {
+class _SessionMeta extends StatelessWidget {
   final DateTime day;
   final int exerciseCount;
   final int totalSets;
 
-  const _DayHeader({
+  const _SessionMeta({
     required this.day,
     required this.exerciseCount,
     required this.totalSets,
@@ -132,90 +137,60 @@ class _DayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.divider, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${day.day}',
-                  style: AppTypography.body.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryRed,
-                    fontSize: 16,
-                    height: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  _monthAbbr(day.month),
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.primaryRed,
-                    fontSize: 9,
-                    letterSpacing: 0.4,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                  ),
-                ),
-              ],
-            ),
+    final dateStr = DateFormat('EEE, MMM d').format(day).toUpperCase();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          dateStr,
+          style: AppTypography.body.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+            color: AppColors.textPrimary,
+            height: 1.0,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  formatDate(day),
-                  style: AppTypography.body.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '$exerciseCount ${exerciseCount == 1 ? 'exercise' : 'exercises'} · '
-                  '$totalSets ${totalSets == 1 ? 'set' : 'sets'}',
-                  style: AppTypography.caption.copyWith(fontSize: 11),
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$exerciseCount ${exerciseCount == 1 ? 'exercise' : 'exercises'}  ·  '
+          '$totalSets ${totalSets == 1 ? 'set' : 'sets'}',
+          style: AppTypography.caption.copyWith(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+            height: 1.0,
           ),
-        ],
-      ),
+        ),
+      ],
     );
-  }
-
-  String _monthAbbr(int m) {
-    const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-    ];
-    return months[m - 1];
   }
 }
 
-class _ExerciseBlock extends StatelessWidget {
+class _AccentRule extends StatelessWidget {
+  const _AccentRule();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 24, height: 2, color: AppColors.primaryRed),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Container(height: 1, color: AppColors.divider),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseRow extends StatelessWidget {
+  final int index;
   final Exercise? exercise;
   final List<WorkoutSet> sets;
 
-  const _ExerciseBlock({
+  const _ExerciseRow({
+    required this.index,
     required this.exercise,
     required this.sets,
   });
@@ -225,131 +200,95 @@ class _ExerciseBlock extends StatelessWidget {
     final measurement = exercise == null
         ? MeasurementType.weightReps
         : MeasurementType.fromString(exercise!.measurementType);
-    final name = exercise?.name ?? 'Exercise';
+    final name = (exercise?.name ?? 'Exercise').toUpperCase();
     final muscle = exercise?.muscleGroup;
 
     final ordered = [...sets]..sort((a, b) {
         final n = a.setNumber.compareTo(b.setNumber);
         if (n != 0) return n;
-        final dropOrder =
-            (a.isDropSet ? 1 : 0).compareTo(b.isDropSet ? 1 : 0);
-        if (dropOrder != 0) return dropOrder;
+        final d = (a.isDropSet ? 1 : 0).compareTo(b.isDropSet ? 1 : 0);
+        if (d != 0) return d;
         return a.id.compareTo(b.id);
       });
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.divider, width: 1),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final setLabels = [
+      for (final s in ordered) _compactSet(s, measurement),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            width: 22,
+            child: Text(
+              index.toString().padLeft(2, '0'),
+              style: AppTypography.body.copyWith(
+                color: AppColors.primaryRed,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(
-                      name,
-                      style: AppTypography.body.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        height: 1.2,
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: AppTypography.body.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                          height: 1.2,
+                        ),
                       ),
                     ),
                     if (muscle != null && muscle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(width: 8),
                       Text(
-                        muscle,
+                        muscle.toUpperCase(),
                         style: AppTypography.caption.copyWith(
                           color: AppColors.textTertiary,
-                          fontSize: 10,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.6,
+                          height: 1.3,
                         ),
                       ),
                     ],
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final set in ordered)
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                set.isDropSet ? 18 : 0,
-                2,
-                0,
-                2,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: set.isDropSet
-                          ? AppColors.primarySoft
-                          : AppColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: set.isDropSet
-                        ? const Icon(
-                            Icons.south_rounded,
-                            size: 11,
-                            color: AppColors.primaryRed,
-                          )
-                        : Text(
-                            '${set.setNumber}',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 10,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      formatSetMetrics(set, measurement),
-                      style: AppTypography.body.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  if (set.isHalfReps)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: AppColors.primaryRed.withOpacity(0.45),
-                          width: 1,
+                const SizedBox(height: 3),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 2,
+                  children: [
+                    for (final label in setLabels)
+                      Text(
+                        label,
+                        style: AppTypography.body.copyWith(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
                         ),
                       ),
-                      child: Text(
-                        '½',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.primaryRed,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -365,24 +304,73 @@ class _Footer extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 4,
-          height: 4,
+          width: 3,
+          height: 3,
           decoration: const BoxDecoration(
             color: AppColors.primaryRed,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Text(
-          'Logged with BuffAI',
+          'LOGGED WITH BUFFAI',
           style: AppTypography.caption.copyWith(
             color: AppColors.textTertiary,
-            fontSize: 10,
-            letterSpacing: 0.6,
-            fontWeight: FontWeight.w600,
+            fontSize: 9,
+            letterSpacing: 1.6,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 3,
+          height: 3,
+          decoration: const BoxDecoration(
+            color: AppColors.primaryRed,
+            shape: BoxShape.circle,
           ),
         ),
       ],
     );
   }
 }
+
+String _compactSet(WorkoutSet s, MeasurementType t) {
+  String base;
+  switch (t) {
+    case MeasurementType.weightReps:
+      base = '${_num(s.weight)}×${s.reps}';
+      break;
+    case MeasurementType.repsBodyweight:
+      final added = s.addedWeight ?? 0;
+      base = added > 0 ? '${s.reps}+${_num(added)}kg' : '${s.reps}';
+      break;
+    case MeasurementType.time:
+      base = _dur(s.durationSec ?? 0);
+      break;
+    case MeasurementType.weightTime:
+      final w = s.weight > 0 ? '${_num(s.weight)}kg·' : '';
+      base = '$w${_dur(s.durationSec ?? 0)}';
+      break;
+    case MeasurementType.distanceTime:
+      base = '${_dist(s.distanceM ?? 0)}·${_dur(s.durationSec ?? 0)}';
+      break;
+  }
+  if (s.isDropSet) base = '↓$base';
+  if (s.isHalfReps) base = '$base½';
+  return base;
+}
+
+String _num(double v) =>
+    v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(1);
+
+String _dur(int sec) {
+  if (sec < 60) return '${sec}s';
+  final m = sec ~/ 60;
+  final s = sec % 60;
+  return s == 0 ? '${m}m' : '$m:${s.toString().padLeft(2, '0')}';
+}
+
+String _dist(double m) => m >= 1000
+    ? '${(m / 1000).toStringAsFixed(m % 1000 == 0 ? 0 : 1)}km'
+    : '${m.toInt()}m';
