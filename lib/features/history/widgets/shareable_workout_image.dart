@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/measurement_type.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/providers/history_provider.dart';
 
@@ -211,9 +212,25 @@ class _ExerciseRow extends StatelessWidget {
         return a.id.compareTo(b.id);
       });
 
-    final setLabels = [
-      for (final s in ordered) _compactSet(s, measurement),
-    ];
+    // Group each working set with its drop sets so a working set and
+    // all of its drops render inside the same bordered pill.
+    final groups = <List<WorkoutSet>>[];
+    final groupByParentId = <int, List<WorkoutSet>>{};
+    for (final s in ordered) {
+      if (s.parentSetId == null) {
+        final group = <WorkoutSet>[s];
+        groups.add(group);
+        groupByParentId[s.id] = group;
+      } else {
+        final parent = groupByParentId[s.parentSetId];
+        if (parent != null) {
+          parent.add(s);
+        } else {
+          // Orphan drop set (shouldn't happen, but don't lose data).
+          groups.add([s]);
+        }
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -269,21 +286,13 @@ class _ExerciseRow extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 2,
+                  spacing: 6,
+                  runSpacing: 5,
                   children: [
-                    for (final label in setLabels)
-                      Text(
-                        label,
-                        style: AppTypography.body.copyWith(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.3,
-                        ),
-                      ),
+                    for (final group in groups)
+                      _SetPill(group: group, measurement: measurement),
                   ],
                 ),
               ],
@@ -335,6 +344,58 @@ class _Footer extends StatelessWidget {
   }
 }
 
+/// A working set plus any drop sets that followed it, drawn as a small
+/// red-bordered pill. For a plain working set it's just the single
+/// metric. For a drop-set series it shows the chain inline separated
+/// by a down-arrow — `60×8 ↓ 40×5 ↓ 25×3`.
+class _SetPill extends StatelessWidget {
+  final List<WorkoutSet> group;
+  final MeasurementType measurement;
+
+  const _SetPill({required this.group, required this.measurement});
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = AppTypography.body.copyWith(
+      fontSize: 12,
+      color: AppColors.textPrimary,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+    );
+    final arrowStyle = textStyle.copyWith(
+      color: AppColors.primaryRed,
+      fontWeight: FontWeight.w700,
+    );
+
+    final children = <Widget>[];
+    for (int i = 0; i < group.length; i++) {
+      if (i > 0) {
+        children.add(const SizedBox(width: 4));
+        children.add(Text('↓', style: arrowStyle));
+        children.add(const SizedBox(width: 4));
+      }
+      children.add(Text(_compactSet(group[i], measurement), style: textStyle));
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.primaryRed.withOpacity(0.55),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: children,
+      ),
+    );
+  }
+}
+
 String _compactSet(WorkoutSet s, MeasurementType t) {
   String base;
   switch (t) {
@@ -346,30 +407,23 @@ String _compactSet(WorkoutSet s, MeasurementType t) {
       base = added > 0 ? '${s.reps}+${_num(added)}kg' : '${s.reps}';
       break;
     case MeasurementType.time:
-      base = _dur(s.durationSec ?? 0);
+      base = formatDurationLabel(s.durationSec ?? 0);
       break;
     case MeasurementType.weightTime:
-      final w = s.weight > 0 ? '${_num(s.weight)}kg·' : '';
-      base = '$w${_dur(s.durationSec ?? 0)}';
+      final w = s.weight > 0 ? '${_num(s.weight)}kg · ' : '';
+      base = '$w${formatDurationLabel(s.durationSec ?? 0)}';
       break;
     case MeasurementType.distanceTime:
-      base = '${_dist(s.distanceM ?? 0)}·${_dur(s.durationSec ?? 0)}';
+      base =
+          '${_dist(s.distanceM ?? 0)} · ${formatDurationLabel(s.durationSec ?? 0)}';
       break;
   }
-  if (s.isDropSet) base = '↓$base';
   if (s.isHalfReps) base = '$base½';
   return base;
 }
 
 String _num(double v) =>
     v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(1);
-
-String _dur(int sec) {
-  if (sec < 60) return '${sec}s';
-  final m = sec ~/ 60;
-  final s = sec % 60;
-  return s == 0 ? '${m}m' : '$m:${s.toString().padLeft(2, '0')}';
-}
 
 String _dist(double m) => m >= 1000
     ? '${(m / 1000).toStringAsFixed(m % 1000 == 0 ? 0 : 1)}km'
