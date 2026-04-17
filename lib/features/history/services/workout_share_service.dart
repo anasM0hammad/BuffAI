@@ -108,7 +108,7 @@ abstract final class WorkoutShareService {
     final rootElement = RenderObjectToWidgetAdapter<RenderBox>(
       container: repaintBoundary,
       child: Directionality(
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
         child: MediaQuery(
           data: MediaQueryData(
             // Height is nominal — layout constraints come from
