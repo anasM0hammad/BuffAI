@@ -133,14 +133,22 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                   data: (exercises) {
                     final filtered = _filterExercises(exercises);
                     if (filtered.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No exercises found',
-                          style: AppTypography.body.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      );
+                      return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _buildCreateNew(),
+                            SizedBox(height: 12),
+                            Center(
+                              child: Text(
+                                'No exercises found',
+                                style: AppTypography.body.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ]
+                        );
                     }
                     return ListView.separated(
                       controller: scrollController,

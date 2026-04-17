@@ -90,15 +90,32 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  Text('Today', style: AppTypography.sectionHeader),
-                  const SizedBox(height: 2),
-                  Text(
-                    formatDate(DateTime.now()),
-                    style: AppTypography.caption,
+                   Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Workout', style: AppTypography.sectionHeader),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatDate(DateTime.now()),
+                        style: AppTypography.caption,
+                      ),
+                    ]
                   ),
+
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 32,
+                        height: 32
+                      ),
+                    ),
+                  )
                 ],
               ),
             ),
