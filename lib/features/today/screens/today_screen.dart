@@ -26,6 +26,7 @@ class TodayScreen extends ConsumerStatefulWidget {
 
 class _TodayScreenState extends ConsumerState<TodayScreen> {
   bool _showRestTimer = false;
+  int _restTimerRestartKey = 0;
 
   void _openExercisePicker() async {
     final selectedExerciseId = await showModalBottomSheet<int>(
@@ -49,7 +50,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     );
 
     if (saved == true && mounted) {
-      setState(() => _showRestTimer = true);
+      setState(() {
+        _showRestTimer = true;
+        _restTimerRestartKey++;
+      });
     }
   }
 
@@ -163,6 +167,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             // Rest timer
             if (_showRestTimer)
               RestTimerBar(
+                key: ValueKey(_restTimerRestartKey),
                 durationSeconds: timerDuration,
                 onDismiss: () => setState(() => _showRestTimer = false),
               ),

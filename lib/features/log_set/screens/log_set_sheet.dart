@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +35,8 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
   // Primary inputs — which are visible is decided by measurement type.
   final _weightController = TextEditingController();
   final _repsController = TextEditingController();
-  final _durationController = TextEditingController(); // M:SS
+  final _minutesController = TextEditingController();
+  final _secondsController = TextEditingController();
   final _distanceController = TextEditingController(); // km
   final _addedWeightController = TextEditingController(); // reps_bodyweight
 
@@ -47,13 +50,29 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
   void dispose() {
     _weightController.dispose();
     _repsController.dispose();
-    _durationController.dispose();
+    _minutesController.dispose();
+    _secondsController.dispose();
     _distanceController.dispose();
     _addedWeightController.dispose();
     for (final d in _drops) {
       d.dispose();
     }
     super.dispose();
+  }
+
+  int? _readDurationSec() {
+    final m = int.tryParse(_minutesController.text.trim());
+    final s = int.tryParse(_secondsController.text.trim());
+    if (m == null && s == null) return null;
+    final total = (m ?? 0) * 60 + (s ?? 0);
+    return total;
+  }
+
+  void _writeDurationSec(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    _minutesController.text = m > 0 ? '$m' : '';
+    _secondsController.text = s > 0 ? '$s' : '';
   }
 
   void _prefill(MeasurementType type) {
@@ -75,16 +94,16 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
           }
           break;
         case MeasurementType.time:
-          _durationController.text = formatDuration(set.durationSec ?? 0);
+          _writeDurationSec(set.durationSec ?? 0);
           break;
         case MeasurementType.weightTime:
           _weightController.text = formatWeightValue(set.weight);
-          _durationController.text = formatDuration(set.durationSec ?? 0);
+          _writeDurationSec(set.durationSec ?? 0);
           break;
         case MeasurementType.distanceTime:
           _distanceController.text =
               ((set.distanceM ?? 0) / 1000).toStringAsFixed(2);
-          _durationController.text = formatDuration(set.durationSec ?? 0);
+          _writeDurationSec(set.durationSec ?? 0);
           break;
       }
       return;
@@ -107,13 +126,13 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
           break;
         case MeasurementType.time:
           if ((set.durationSec ?? 0) > 0) {
-            _durationController.text = formatDuration(set.durationSec!);
+            _writeDurationSec(set.durationSec!);
           }
           break;
         case MeasurementType.weightTime:
           _weightController.text = formatWeightValue(set.weight);
           if ((set.durationSec ?? 0) > 0) {
-            _durationController.text = formatDuration(set.durationSec!);
+            _writeDurationSec(set.durationSec!);
           }
           break;
         case MeasurementType.distanceTime:
@@ -122,7 +141,7 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
                 (set.distanceM! / 1000).toStringAsFixed(2);
           }
           if ((set.durationSec ?? 0) > 0) {
-            _durationController.text = formatDuration(set.durationSec!);
+            _writeDurationSec(set.durationSec!);
           }
           break;
       }
@@ -154,16 +173,16 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
               : '';
           break;
         case MeasurementType.time:
-          _durationController.text = formatDuration(last.durationSec ?? 0);
+          _writeDurationSec(last.durationSec ?? 0);
           break;
         case MeasurementType.weightTime:
           _weightController.text = formatWeightValue(last.weight);
-          _durationController.text = formatDuration(last.durationSec ?? 0);
+          _writeDurationSec(last.durationSec ?? 0);
           break;
         case MeasurementType.distanceTime:
           _distanceController.text =
               ((last.distanceM ?? 0) / 1000).toStringAsFixed(2);
-          _durationController.text = formatDuration(last.durationSec ?? 0);
+          _writeDurationSec(last.durationSec ?? 0);
           break;
       }
     });
@@ -179,15 +198,15 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
         final r = int.tryParse(_repsController.text.trim());
         return r != null && r > 0;
       case MeasurementType.time:
-        final d = parseDurationInput(_durationController.text);
+        final d = _readDurationSec();
         return d != null && d > 0;
       case MeasurementType.weightTime:
         final w = double.tryParse(_weightController.text.trim());
-        final d = parseDurationInput(_durationController.text);
+        final d = _readDurationSec();
         return w != null && w >= 0 && d != null && d > 0;
       case MeasurementType.distanceTime:
         final dist = double.tryParse(_distanceController.text.trim());
-        final d = parseDurationInput(_durationController.text);
+        final d = _readDurationSec();
         final distOk = dist != null && dist > 0;
         final durOk = d != null && d > 0;
         // Accept distance-only or time-only as long as one is present.
@@ -216,16 +235,16 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
         if (added != null && added > 0) addedWeight = added;
         break;
       case MeasurementType.time:
-        durationSec = parseDurationInput(_durationController.text);
+        durationSec = _readDurationSec();
         break;
       case MeasurementType.weightTime:
         weight = double.parse(_weightController.text.trim());
-        durationSec = parseDurationInput(_durationController.text);
+        durationSec = _readDurationSec();
         break;
       case MeasurementType.distanceTime:
         final km = double.tryParse(_distanceController.text.trim());
         if (km != null && km > 0) distanceM = km * 1000;
-        durationSec = parseDurationInput(_durationController.text);
+        durationSec = _readDurationSec();
         break;
     }
 
@@ -541,60 +560,73 @@ class _LogSetSheetState extends ConsumerState<LogSetSheet> {
           ],
         );
       case MeasurementType.time:
-        return _NumberField(
-          label: 'Duration',
-          suffix: 'M:SS',
-          controller: _durationController,
-          allowDecimal: false,
-          allowColon: true,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _durationFields(),
+            const SizedBox(height: 12),
+            _StopwatchPanel(onApply: _writeDurationSec),
+          ],
         );
       case MeasurementType.weightTime:
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _NumberField(
-                label: 'Weight',
-                suffix: 'kg',
-                controller: _weightController,
-                allowDecimal: true,
-              ),
+            _NumberField(
+              label: 'Weight',
+              suffix: 'kg',
+              controller: _weightController,
+              allowDecimal: true,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _NumberField(
-                label: 'Duration',
-                suffix: 'M:SS',
-                controller: _durationController,
-                allowDecimal: false,
-                allowColon: true,
-              ),
-            ),
+            const SizedBox(height: 12),
+            _durationFields(),
+            const SizedBox(height: 12),
+            _StopwatchPanel(onApply: _writeDurationSec),
           ],
         );
       case MeasurementType.distanceTime:
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _NumberField(
-                label: 'Distance',
-                suffix: 'km',
-                controller: _distanceController,
-                allowDecimal: true,
-              ),
+            _NumberField(
+              label: 'Distance',
+              suffix: 'km',
+              controller: _distanceController,
+              allowDecimal: true,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _NumberField(
-                label: 'Duration',
-                suffix: 'M:SS',
-                controller: _durationController,
-                allowDecimal: false,
-                allowColon: true,
-              ),
-            ),
+            const SizedBox(height: 12),
+            _durationFields(),
+            const SizedBox(height: 12),
+            _StopwatchPanel(onApply: _writeDurationSec),
           ],
         );
     }
+  }
+
+  Widget _durationFields() {
+    return Row(
+      children: [
+        Expanded(
+          child: _NumberField(
+            label: 'Minutes',
+            suffix: 'min',
+            controller: _minutesController,
+            allowDecimal: false,
+            hint: '0',
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _NumberField(
+            label: 'Seconds',
+            suffix: 'sec',
+            controller: _secondsController,
+            allowDecimal: false,
+            hint: '00',
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -642,22 +674,20 @@ class _NumberField extends StatelessWidget {
   final String suffix;
   final TextEditingController controller;
   final bool allowDecimal;
-  final bool allowColon;
+  final String? hint;
 
   const _NumberField({
     required this.label,
     required this.suffix,
     required this.controller,
     this.allowDecimal = false,
-    this.allowColon = false,
+    this.hint,
   });
 
   @override
   Widget build(BuildContext context) {
-    final allowed = StringBuffer(r'\d');
-    if (allowDecimal) allowed.write('.');
-    if (allowColon) allowed.write(':');
-    final filter = RegExp('[${allowed.toString()}]');
+    final filter =
+        allowDecimal ? RegExp(r'[\d.]') : RegExp(r'\d');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,16 +709,19 @@ class _NumberField extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
-                  keyboardType: allowColon
-                      ? TextInputType.text
-                      : TextInputType.numberWithOptions(decimal: allowDecimal),
+                  keyboardType:
+                      TextInputType.numberWithOptions(decimal: allowDecimal),
                   inputFormatters: [FilteringTextInputFormatter.allow(filter)],
                   textAlign: TextAlign.center,
                   style: AppTypography.inputNumber,
                   cursorColor: AppColors.primaryRed,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8),
+                    hintText: hint,
+                    hintStyle: AppTypography.inputNumber
+                        .copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               ),
@@ -914,6 +947,144 @@ class _MiniField extends StatelessWidget {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
+      ),
+    );
+  }
+}
+
+class _StopwatchPanel extends StatefulWidget {
+  final ValueChanged<int> onApply;
+  const _StopwatchPanel({required this.onApply});
+
+  @override
+  State<_StopwatchPanel> createState() => _StopwatchPanelState();
+}
+
+class _StopwatchPanelState extends State<_StopwatchPanel> {
+  final Stopwatch _stopwatch = Stopwatch();
+  Timer? _ticker;
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _toggle() {
+    HapticFeedback.selectionClick();
+    if (_stopwatch.isRunning) {
+      _stopwatch.stop();
+      _ticker?.cancel();
+      _ticker = null;
+      final elapsedSec = _stopwatch.elapsed.inSeconds;
+      if (elapsedSec > 0) widget.onApply(elapsedSec);
+      setState(() {});
+    } else {
+      _stopwatch.start();
+      _ticker ??= Timer.periodic(const Duration(milliseconds: 200), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  void _reset() {
+    HapticFeedback.selectionClick();
+    _stopwatch.stop();
+    _stopwatch.reset();
+    _ticker?.cancel();
+    _ticker = null;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = _stopwatch.elapsed;
+    final minutes =
+        elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds =
+        elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final running = _stopwatch.isRunning;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider, width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer_outlined,
+              color: AppColors.primaryRed, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            '$minutes:$seconds',
+            style: AppTypography.timerDisplay.copyWith(
+              fontSize: 22,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const Spacer(),
+          InkWell(
+            onTap: _toggle,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primaryRed,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    running ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: AppColors.textPrimary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    running ? 'Stop' : 'Start',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _reset,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.divider, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.refresh_rounded,
+                      color: AppColors.textSecondary, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Reset',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
