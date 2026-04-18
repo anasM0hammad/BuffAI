@@ -5,14 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/food_types.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/database/app_database.dart';
 import '../../../data/providers/foods_provider.dart';
 
-/// Sheet for creating a new user-custom food. On success the sheet pops
-/// with the newly inserted food id, which the picker uses to open a
-/// portion sheet immediately so the user can log their first entry.
+/// Sheet for creating or editing a user-custom food. In "add" mode the
+/// sheet pops with the newly inserted food id so the picker can open the
+/// portion sheet immediately. In "edit" mode it pops with the same id
+/// on save or `null` on cancel.
 class CustomFoodSheet extends ConsumerStatefulWidget {
   final String? initialName;
-  const CustomFoodSheet({super.key, this.initialName});
+  final Food? existingFood;
+
+  const CustomFoodSheet({super.key, this.initialName, this.existingFood});
+
+  bool get isEditing => existingFood != null;
 
   @override
   ConsumerState<CustomFoodSheet> createState() => _CustomFoodSheetState();
@@ -20,24 +26,49 @@ class CustomFoodSheet extends ConsumerStatefulWidget {
 
 class _CustomFoodSheetState extends ConsumerState<CustomFoodSheet> {
   late final TextEditingController _nameController;
-  final _amountController = TextEditingController();
-  final _kcalController = TextEditingController();
-  final _proteinController = TextEditingController();
+  late final TextEditingController _amountController;
+  late final TextEditingController _kcalController;
+  late final TextEditingController _proteinController;
 
-  FoodCategory _category = FoodCategory.protein;
-  FoodUnit _unit = FoodUnit.g;
+  late FoodCategory _category;
+  late FoodUnit _unit;
 
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.initialName ?? '');
+    final f = widget.existingFood;
+    _nameController = TextEditingController(
+      text: f?.name ?? widget.initialName ?? '',
+    );
+    _amountController = TextEditingController(
+      text: f == null ? '' : _formatAmount(f.baseAmount),
+    );
+    _kcalController = TextEditingController(
+      text: f == null ? '' : '${f.kcal}',
+    );
+    _proteinController = TextEditingController(
+      text: f == null ? '' : _formatAmount(f.proteinG),
+    );
+    _category = f == null ? FoodCategory.protein : _categoryFromDb(f.category);
+    _unit = f == null ? FoodUnit.g : FoodUnit.fromDb(f.baseUnit);
     _amountController.addListener(() => setState(() {}));
     _kcalController.addListener(() => setState(() {}));
     _proteinController.addListener(() => setState(() {}));
     _nameController.addListener(() => setState(() {}));
+  }
+
+  static FoodCategory _categoryFromDb(String value) {
+    for (final c in FoodCategory.values) {
+      if (c.name == value) return c;
+    }
+    return FoodCategory.protein;
+  }
+
+  static String _formatAmount(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toStringAsFixed(1);
   }
 
   @override
@@ -76,17 +107,38 @@ class _CustomFoodSheetState extends ConsumerState<CustomFoodSheet> {
     if (!_canSave || _saving) return;
     setState(() => _saving = true);
 
-    final add = ref.read(addCustomFoodProvider);
-    final newId = await add(
-      name: _nameController.text.trim(),
-      category: _category.name,
-      baseAmount: double.parse(_amountController.text.trim()),
-      baseUnit: _unit.name,
-      kcal: int.parse(_kcalController.text.trim()),
-      proteinG: double.parse(_proteinController.text.trim()),
-    );
+    final name = _nameController.text.trim();
+    final amount = double.parse(_amountController.text.trim());
+    final kcal = int.parse(_kcalController.text.trim());
+    final protein = double.parse(_proteinController.text.trim());
 
-    if (mounted) Navigator.pop(context, newId);
+    final existing = widget.existingFood;
+    int resultId;
+    if (existing != null) {
+      final edit = ref.read(updateCustomFoodProvider);
+      await edit(
+        id: existing.id,
+        name: name,
+        category: _category.name,
+        baseAmount: amount,
+        baseUnit: _unit.name,
+        kcal: kcal,
+        proteinG: protein,
+      );
+      resultId = existing.id;
+    } else {
+      final add = ref.read(addCustomFoodProvider);
+      resultId = await add(
+        name: name,
+        category: _category.name,
+        baseAmount: amount,
+        baseUnit: _unit.name,
+        kcal: kcal,
+        proteinG: protein,
+      );
+    }
+
+    if (mounted) Navigator.pop(context, resultId);
   }
 
   @override
@@ -123,7 +175,10 @@ class _CustomFoodSheetState extends ConsumerState<CustomFoodSheet> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text('Add food', style: AppTypography.sectionHeader),
+                Text(
+                  widget.isEditing ? 'Edit food' : 'Add food',
+                  style: AppTypography.sectionHeader,
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'Enter the calories and protein for one portion. You can log any multiple of this later.',
@@ -136,8 +191,9 @@ class _CustomFoodSheetState extends ConsumerState<CustomFoodSheet> {
                 const SizedBox(height: 8),
                 _TextBox(
                   controller: _nameController,
-                  autofocus: widget.initialName == null ||
-                      widget.initialName!.trim().isEmpty,
+                  autofocus: !widget.isEditing &&
+                      (widget.initialName == null ||
+                          widget.initialName!.trim().isEmpty),
                   hint: 'e.g. Chicken breast',
                 ),
                 const SizedBox(height: 18),
@@ -337,7 +393,7 @@ class _CustomFoodSheetState extends ConsumerState<CustomFoodSheet> {
                                   ),
                                 )
                               : Text(
-                                  'Save food',
+                                  widget.isEditing ? 'Save changes' : 'Save food',
                                   style: AppTypography.body.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,

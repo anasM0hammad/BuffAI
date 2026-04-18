@@ -6,6 +6,7 @@ import '../../../core/constants/food_types.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/database/app_database.dart';
+import '../../../data/providers/calorie_goal_provider.dart';
 import '../../../data/providers/food_logs_provider.dart';
 import '../../../data/providers/foods_provider.dart';
 import '../../../shared/widgets/buff_button.dart';
@@ -131,6 +132,7 @@ class _PortionSheetState extends ConsumerState<PortionSheet> {
       );
     } else {
       final food = widget.food!;
+      final goal = ref.read(calorieGoalProvider);
       final add = ref.read(addFoodLogProvider);
       await add(
         foodId: food.id,
@@ -139,6 +141,8 @@ class _PortionSheetState extends ConsumerState<PortionSheet> {
         portionUnit: food.baseUnit,
         kcal: computed.kcal,
         proteinG: computed.proteinG,
+        kcalTarget: goal.kcal,
+        proteinTargetG: goal.proteinG,
       );
     }
 

@@ -54,7 +54,9 @@ final foodLogsSinceProvider =
 
 /// Log a food. `kcal` and `proteinG` are the totals for the portion the
 /// user is saving, not the per-base values — the caller is responsible for
-/// scaling from the source food.
+/// scaling from the source food. `kcalTarget` / `proteinTargetG` snapshot
+/// the user's daily goal so history deltas don't shift when the goal is
+/// later changed.
 final addFoodLogProvider = Provider<
     Future<int> Function({
       required int? foodId,
@@ -63,6 +65,8 @@ final addFoodLogProvider = Provider<
       required String portionUnit,
       required int kcal,
       required double proteinG,
+      int? kcalTarget,
+      double? proteinTargetG,
       DateTime? loggedAt,
     })>((ref) {
   final db = ref.watch(databaseProvider);
@@ -73,6 +77,8 @@ final addFoodLogProvider = Provider<
     required String portionUnit,
     required int kcal,
     required double proteinG,
+    int? kcalTarget,
+    double? proteinTargetG,
     DateTime? loggedAt,
   }) {
     return db.insertFoodLog(
@@ -82,6 +88,8 @@ final addFoodLogProvider = Provider<
       portionUnit: portionUnit,
       kcal: kcal,
       proteinG: proteinG,
+      kcalTarget: kcalTarget,
+      proteinTargetG: proteinTargetG,
       loggedAt: loggedAt,
     );
   };

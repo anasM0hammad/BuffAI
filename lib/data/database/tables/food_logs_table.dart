@@ -25,5 +25,12 @@ class FoodLogs extends Table {
   IntColumn get kcal => integer()();
   RealColumn get proteinG => real()();
 
+  /// Snapshot of the user's daily calorie + protein goals at the moment
+  /// this entry was logged. History displays deltas against these
+  /// snapshots so changing the goal today doesn't retroactively rewrite
+  /// past days. Nullable for rows written before goals were introduced.
+  IntColumn get kcalTarget => integer().nullable()();
+  RealColumn get proteinTargetG => real().nullable()();
+
   DateTimeColumn get loggedAt => dateTime()();
 }

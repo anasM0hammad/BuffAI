@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +60,13 @@ class AppDatabase extends _$AppDatabase {
             // Already on v4+. Backfill any new curated foods added to
             // the library since the last release.
             await _seedMissingFoods();
+          }
+          if (from < 5) {
+            // v5 snapshots the user's daily kcal + protein goals onto
+            // each food log entry so past-day deltas stop moving when
+            // the goal is later changed.
+            await m.addColumn(foodLogs, foodLogs.kcalTarget);
+            await m.addColumn(foodLogs, foodLogs.proteinTargetG);
           }
         },
       );
@@ -394,6 +401,30 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Edit a user-custom food. Existing logs keep their snapshotted
+  /// name/kcal/protein values on purpose so history isn't rewritten.
+  Future<bool> updateCustomFood({
+    required int id,
+    required String name,
+    required String category,
+    required double baseAmount,
+    required String baseUnit,
+    required int kcal,
+    required double proteinG,
+  }) async {
+    final count = await (update(foods)..where((f) => f.id.equals(id))).write(
+      FoodsCompanion(
+        name: Value(name),
+        category: Value(category),
+        baseAmount: Value(baseAmount),
+        baseUnit: Value(baseUnit),
+        kcal: Value(kcal),
+        proteinG: Value(proteinG),
+      ),
+    );
+    return count > 0;
+  }
+
   Future<int> deleteFood(int id) async {
     return transaction(() async {
       // Orphan any logs referencing this food so history survives.
@@ -481,6 +512,8 @@ class AppDatabase extends _$AppDatabase {
     required String portionUnit,
     required int kcal,
     required double proteinG,
+    int? kcalTarget,
+    double? proteinTargetG,
     DateTime? loggedAt,
   }) {
     return into(foodLogs).insert(
@@ -491,6 +524,8 @@ class AppDatabase extends _$AppDatabase {
         portionUnit: portionUnit,
         kcal: kcal,
         proteinG: proteinG,
+        kcalTarget: Value(kcalTarget),
+        proteinTargetG: Value(proteinTargetG),
         loggedAt: loggedAt ?? DateTime.now(),
       ),
     );
