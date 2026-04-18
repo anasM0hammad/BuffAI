@@ -131,6 +131,9 @@ class _CalorieDayCardState extends State<_CalorieDayCard> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => setState(() => _expanded = !_expanded),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -275,7 +278,7 @@ class _DayTotals extends StatelessWidget {
               label: 'Calories',
               value: '${day.totalKcal}',
               unit: 'kcal',
-              accent: AppColors.primaryRed,
+              accent: AppColors.textPrimary,
               delta: _kcalDelta(),
             ),
           ),
@@ -382,8 +385,8 @@ class _TotalCell extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        if (delta != null)
+        if (delta != null) ...[
+          const SizedBox(height: 4),
           Text(
             delta!.text,
             style: AppTypography.caption.copyWith(
@@ -393,16 +396,8 @@ class _TotalCell extends StatelessWidget {
               fontWeight: FontWeight.w700,
               fontSize: 11,
             ),
-          )
-        else
-          Text(
-            'no goal',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textTertiary,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
           ),
+        ],
       ],
     );
   }
