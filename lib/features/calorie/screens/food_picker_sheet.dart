@@ -16,6 +16,9 @@ import 'portion_sheet.dart';
 ///   - a scrollable alphabetical list filtered by the search,
 ///   - an inline "Add custom food" CTA when the query has no match.
 ///
+/// Editing and deleting custom foods lives in Settings → Manage Foods,
+/// not here — the picker stays a pure "choose what to log" flow.
+///
 /// Popping with `true` means a food was logged downstream.
 class FoodPickerSheet extends ConsumerStatefulWidget {
   const FoodPickerSheet({super.key});
@@ -59,37 +62,6 @@ class _FoodPickerSheetState extends ConsumerState<FoodPickerSheet> {
     final food = await ref.read(foodByIdProvider(newId).future);
     if (food != null && mounted) {
       await _openPortion(food);
-    }
-  }
-
-  /// Long-press menu on a custom food: edit or delete. Built-in foods
-  /// don't surface this action since the curated library is read-only.
-  Future<void> _openCustomFoodActions(Food food) async {
-    if (!food.isCustom) return;
-    final action = await showModalBottomSheet<_CustomFoodAction>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CustomFoodActionSheet(foodName: food.name),
-    );
-    if (!mounted || action == null) return;
-    switch (action) {
-      case _CustomFoodAction.edit:
-        await showModalBottomSheet<int>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => CustomFoodSheet(existingFood: food),
-        );
-        break;
-      case _CustomFoodAction.delete:
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (_) => _DeleteFoodDialog(foodName: food.name),
-        );
-        if (confirmed == true) {
-          await ref.read(deleteFoodProvider)(food.id);
-        }
-        break;
     }
   }
 
@@ -182,7 +154,6 @@ class _FoodPickerSheetState extends ConsumerState<FoodPickerSheet> {
                       recentIds:
                           recentIdsAsync.valueOrNull ?? const <int>[],
                       onTapFood: _openPortion,
-                      onLongPressFood: _openCustomFoodActions,
                       onAddCustom: _openAddCustom,
                     );
                   },
@@ -269,7 +240,6 @@ class _PickerBody extends StatelessWidget {
   final List<Food> allFoods;
   final List<int> recentIds;
   final ValueChanged<Food> onTapFood;
-  final ValueChanged<Food> onLongPressFood;
   final VoidCallback onAddCustom;
 
   const _PickerBody({
@@ -278,7 +248,6 @@ class _PickerBody extends StatelessWidget {
     required this.allFoods,
     required this.recentIds,
     required this.onTapFood,
-    required this.onLongPressFood,
     required this.onAddCustom,
   });
 
@@ -348,7 +317,6 @@ class _PickerBody extends StatelessWidget {
           (f) => _FoodRow(
             food: f,
             onTap: () => onTapFood(f),
-            onLongPress: f.isCustom ? () => onLongPressFood(f) : null,
           ),
         ),
       ],
@@ -478,8 +446,7 @@ class _RecentChip extends StatelessWidget {
 class _FoodRow extends StatelessWidget {
   final Food food;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-  const _FoodRow({required this.food, required this.onTap, this.onLongPress});
+  const _FoodRow({required this.food, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -489,7 +456,6 @@ class _FoodRow extends StatelessWidget {
         : food.baseAmount.toStringAsFixed(1);
     return InkWell(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: Container(
         padding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -558,160 +524,6 @@ class _FoodRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-enum _CustomFoodAction { edit, delete }
-
-/// Modal action sheet shown when the user long-presses a custom food row.
-class _CustomFoodActionSheet extends StatelessWidget {
-  final String foodName;
-  const _CustomFoodActionSheet({required this.foodName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.textTertiary,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                foodName,
-                style: AppTypography.body.copyWith(fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            _ActionRow(
-              icon: Icons.edit_outlined,
-              label: 'Edit food',
-              onTap: () =>
-                  Navigator.pop(context, _CustomFoodAction.edit),
-            ),
-            _ActionRow(
-              icon: Icons.delete_outline_rounded,
-              label: 'Delete food',
-              destructive: true,
-              onTap: () =>
-                  Navigator.pop(context, _CustomFoodAction.delete),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool destructive;
-
-  const _ActionRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.destructive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        destructive ? AppColors.primaryRed : AppColors.textPrimary;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: AppTypography.body.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteFoodDialog extends StatelessWidget {
-  final String foodName;
-  const _DeleteFoodDialog({required this.foodName});
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: Text('Delete "$foodName"?', style: AppTypography.cardTitle),
-      content: Text(
-        'The food is removed from your library. Past log entries that '
-        'referenced it stay intact.',
-        style: AppTypography.body.copyWith(
-          color: AppColors.textSecondary,
-          height: 1.4,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.textSecondary,
-          ),
-          child: Text(
-            'Cancel',
-            style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryRed,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: Text(
-            'Delete',
-            style: AppTypography.body.copyWith(
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

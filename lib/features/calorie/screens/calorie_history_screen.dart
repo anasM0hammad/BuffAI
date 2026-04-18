@@ -8,11 +8,10 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/providers/food_logs_provider.dart';
 
-/// Per-day calorie + protein history. Each day is an [ExpansionTile]
-/// showing the day's totals plus surplus/deficit computed against the
-/// goals that were in effect **when the entries were logged** — not the
-/// user's current goal. This means editing today's goal never
-/// retroactively rewrites yesterday's verdict.
+/// Per-day calorie + protein history. Each day card shows the raw totals
+/// and a signed delta against the goal that was in effect **when the
+/// entries were logged** — not the user's current goal. This means
+/// editing today's goal never retroactively rewrites yesterday's verdict.
 class CalorieHistoryScreen extends ConsumerWidget {
   const CalorieHistoryScreen({super.key});
 
@@ -39,7 +38,7 @@ class CalorieHistoryScreen extends ConsumerWidget {
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               itemCount: days.length,
-              itemBuilder: (_, i) => _CalorieDayTile(day: days[i]),
+              itemBuilder: (_, i) => _CalorieDayCard(day: days[i]),
             );
           },
           loading: () => const Center(
@@ -100,15 +99,26 @@ class _CalorieDay {
   }
 }
 
-class _CalorieDayTile extends StatelessWidget {
+/// Custom expandable card. The top row carries the date + a small
+/// chevron; below that sits the full-width totals block. Tapping the
+/// card toggles the detailed food entries. We deliberately avoid
+/// `ExpansionTile` so nothing eats into the totals' horizontal space.
+class _CalorieDayCard extends StatefulWidget {
   final _CalorieDay day;
-  const _CalorieDayTile({required this.day});
+  const _CalorieDayCard({required this.day});
+
+  @override
+  State<_CalorieDayCard> createState() => _CalorieDayCardState();
+}
+
+class _CalorieDayCardState extends State<_CalorieDayCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
-    final entries = [...day.entries]
+    final entries = [...widget.day.entries]
       ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-    final snap = day.snapshotGoal;
+    final snap = widget.day.snapshotGoal;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -117,28 +127,39 @@ class _CalorieDayTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.divider, width: 1),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            dividerColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-          ),
-          child: ExpansionTile(
-            tilePadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            iconColor: AppColors.textSecondary,
-            collapsedIconColor: AppColors.textTertiary,
-            title: _DayHeader(day: day, snap: snap),
-            children: [
-              for (int i = 0; i < entries.length; i++)
-                _EntryRow(
-                  log: entries[i],
-                  isLast: i == entries.length - 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DayHeader(day: widget.day, expanded: _expanded),
+                const SizedBox(height: 12),
+                _DayTotals(day: widget.day, snap: snap),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: _expanded
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Column(
+                            children: [
+                              for (int i = 0; i < entries.length; i++)
+                                _EntryRow(
+                                  log: entries[i],
+                                  isLast: i == entries.length - 1,
+                                ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -148,73 +169,75 @@ class _CalorieDayTile extends StatelessWidget {
 
 class _DayHeader extends StatelessWidget {
   final _CalorieDay day;
-  final ({int? kcal, double? proteinG}) snap;
-  const _DayHeader({required this.day, required this.snap});
+  final bool expanded;
+  const _DayHeader({required this.day, required this.expanded});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(10),
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${day.day.day}',
+                style: AppTypography.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryRed,
+                  fontSize: 15,
+                  height: 1.05,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${day.day.day}',
-                    style: AppTypography.body.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryRed,
-                      fontSize: 15,
-                      height: 1.05,
-                    ),
-                  ),
-                  Text(
-                    _monthAbbr(day.day.month),
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.primaryRed,
-                      fontSize: 9,
-                      letterSpacing: 0.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+              Text(
+                _monthAbbr(day.day.month),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.primaryRed,
+                  fontSize: 9,
+                  letterSpacing: 0.4,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    formatDate(day.day),
-                    style: AppTypography.body.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${day.entries.length} '
-                    '${day.entries.length == 1 ? 'entry' : 'entries'}',
-                    style: AppTypography.caption,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        _DayTotals(day: day, snap: snap),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatDate(day.day),
+                style: AppTypography.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${day.entries.length} '
+                '${day.entries.length == 1 ? 'entry' : 'entries'}',
+                style: AppTypography.caption,
+              ),
+            ],
+          ),
+        ),
+        AnimatedRotation(
+          turns: expanded ? 0.5 : 0.0,
+          duration: const Duration(milliseconds: 180),
+          child: const Icon(
+            Icons.expand_more_rounded,
+            color: AppColors.textSecondary,
+            size: 22,
+          ),
+        ),
       ],
     );
   }
@@ -228,11 +251,10 @@ class _DayHeader extends StatelessWidget {
   }
 }
 
-/// Two-column stat block under each day: calories on the left (with its
-/// surplus/deficit vs the snapshotted goal), protein on the right (with
-/// remaining/over against its own snapshotted goal). The two columns
-/// carry their own colour accents so neither one feels like an
-/// afterthought.
+/// Full-width totals block: calories + protein consumed, with a signed
+/// delta against the snapshotted goal below each. Signs are the sole
+/// indicator — `+` renders green, `−` renders red. Goal values
+/// themselves are deliberately hidden; they'd just add visual noise.
 class _DayTotals extends StatelessWidget {
   final _CalorieDay day;
   final ({int? kcal, double? proteinG}) snap;
@@ -241,7 +263,7 @@ class _DayTotals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.circular(10),
@@ -249,27 +271,22 @@ class _DayTotals extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _StatColumn(
+            child: _TotalCell(
               label: 'Calories',
               value: '${day.totalKcal}',
-              goal: snap.kcal == null ? null : '${snap.kcal}',
               unit: 'kcal',
               accent: AppColors.primaryRed,
               delta: _kcalDelta(),
             ),
           ),
-          Container(width: 1, height: 40, color: AppColors.divider),
+          Container(width: 1, height: 44, color: AppColors.divider),
           Expanded(
-            child: _StatColumn(
+            child: _TotalCell(
               label: 'Protein',
               value: _formatProtein(day.totalProteinG),
-              goal: snap.proteinG == null
-                  ? null
-                  : _formatProtein(snap.proteinG!),
               unit: 'g',
               accent: AppColors.textPrimary,
               delta: _proteinDelta(),
-              proteinMode: true,
             ),
           ),
         ],
@@ -277,37 +294,24 @@ class _DayTotals extends StatelessWidget {
     );
   }
 
-  _StatDelta? _kcalDelta() {
+  _SignedDelta? _kcalDelta() {
     final g = snap.kcal;
     if (g == null) return null;
     final diff = day.totalKcal - g;
-    return _StatDelta(
-      label: diff >= 0 ? 'Surplus' : 'Deficit',
-      value: diff >= 0 ? '+$diff' : '−${diff.abs()}',
-      unit: 'kcal',
+    return _SignedDelta(
+      text: diff >= 0 ? '+$diff kcal' : '−${diff.abs()} kcal',
       isPositive: diff >= 0,
     );
   }
 
-  _StatDelta? _proteinDelta() {
+  _SignedDelta? _proteinDelta() {
     final g = snap.proteinG;
     if (g == null) return null;
     final diff = day.totalProteinG - g;
-    // For protein, meeting/exceeding the goal is a neutral-good state
-    // (no alert). Falling short shows how many grams are left.
-    if (diff >= 0) {
-      return _StatDelta(
-        label: 'Hit',
-        value: '+${_formatProtein(diff)}',
-        unit: 'g',
-        isPositive: true,
-      );
-    }
-    return _StatDelta(
-      label: 'Short',
-      value: '−${_formatProtein(diff.abs())}',
-      unit: 'g',
-      isPositive: false,
+    final absFormatted = _formatProtein(diff.abs());
+    return _SignedDelta(
+      text: diff >= 0 ? '+$absFormatted g' : '−$absFormatted g',
+      isPositive: diff >= 0,
     );
   }
 
@@ -317,45 +321,32 @@ class _DayTotals extends StatelessWidget {
   }
 }
 
-class _StatDelta {
-  final String label;
-  final String value;
-  final String unit;
+class _SignedDelta {
+  final String text;
   final bool isPositive;
-  const _StatDelta({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.isPositive,
-  });
+  const _SignedDelta({required this.text, required this.isPositive});
 }
 
-class _StatColumn extends StatelessWidget {
+class _TotalCell extends StatelessWidget {
   final String label;
   final String value;
-  final String? goal;
   final String unit;
   final Color accent;
-  final _StatDelta? delta;
+  final _SignedDelta? delta;
 
-  /// When true, a positive delta renders as neutral-primary rather than
-  /// alert-red. Protein hitting its goal is a good thing, not a warning.
-  final bool proteinMode;
-
-  const _StatColumn({
+  const _TotalCell({
     required this.label,
     required this.value,
-    required this.goal,
     required this.unit,
     required this.accent,
     required this.delta,
-    this.proteinMode = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label.toUpperCase(),
@@ -368,6 +359,7 @@ class _StatColumn extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
@@ -376,76 +368,42 @@ class _StatColumn extends StatelessWidget {
               style: AppTypography.cardTitle.copyWith(
                 color: accent,
                 fontWeight: FontWeight.w700,
-                fontSize: 20,
+                fontSize: 22,
+                height: 1.0,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 3),
             Text(
-              goal == null ? unit : '/ $goal $unit',
+              unit,
               style: AppTypography.caption.copyWith(
                 color: AppColors.textTertiary,
+                fontSize: 11,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         if (delta != null)
-          _DeltaTag(delta: delta!, proteinMode: proteinMode)
+          Text(
+            delta!.text,
+            style: AppTypography.caption.copyWith(
+              color: delta!.isPositive
+                  ? AppColors.success
+                  : AppColors.primaryRed,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+            ),
+          )
         else
           Text(
-            'No goal set',
+            'no goal',
             style: AppTypography.caption.copyWith(
               color: AppColors.textTertiary,
+              fontSize: 11,
               fontStyle: FontStyle.italic,
             ),
           ),
       ],
-    );
-  }
-}
-
-class _DeltaTag extends StatelessWidget {
-  final _StatDelta delta;
-  final bool proteinMode;
-  const _DeltaTag({required this.delta, this.proteinMode = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final useAlert = delta.isPositive && !proteinMode;
-    final bg = useAlert ? AppColors.primarySoft : AppColors.surface;
-    final fg = useAlert ? AppColors.primaryRed : AppColors.textPrimary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(
-            delta.label.toUpperCase(),
-            style: AppTypography.caption.copyWith(
-              color: fg.withOpacity(0.7),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              fontSize: 9,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${delta.value} ${delta.unit}',
-            style: AppTypography.caption.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
