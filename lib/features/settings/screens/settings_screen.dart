@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/providers/database_provider.dart';
 import '../../calculators/screens/calculators_screen.dart';
+import '../../history/screens/history_tab_screen.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../../today/screens/today_screen.dart';
 import '../widgets/edit_profile_sheet.dart';
@@ -124,6 +125,17 @@ class SettingsScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => const CalculatorsScreen(),
+              ),
+            ),
+          ),
+          _SettingsTile(
+            title: 'History',
+            subtitle: 'Hydration and workout history, last 30 days',
+            icon: Icons.history_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const HistoryTabScreen(),
               ),
             ),
           ),

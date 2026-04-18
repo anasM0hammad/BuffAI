@@ -29,13 +29,19 @@ class HistoryTabScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        title: Text('History', style: AppTypography.sectionHeader),
+      ),
       body: SafeArea(
+        top: false,
         child: CustomScrollView(
           slivers: [
             const SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               sliver: SliverToBoxAdapter(
-                child: _HistoryHeader(),
+                child: _HistorySubtitle(),
               ),
             ),
             SliverPadding(
@@ -71,21 +77,14 @@ class HistoryTabScreen extends ConsumerWidget {
   }
 }
 
-class _HistoryHeader extends StatelessWidget {
-  const _HistoryHeader();
+class _HistorySubtitle extends StatelessWidget {
+  const _HistorySubtitle();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('History', style: AppTypography.sectionHeader),
-        const SizedBox(height: 2),
-        Text(
-          'Last 7 days of hydration and training',
-          style: AppTypography.caption,
-        ),
-      ],
+    return Text(
+      'Last 7 days of hydration and training',
+      style: AppTypography.caption,
     );
   }
 }

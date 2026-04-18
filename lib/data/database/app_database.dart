@@ -6,26 +6,30 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/default_exercises.dart';
+import '../../core/constants/default_foods.dart';
 import 'tables/exercises_table.dart';
+import 'tables/food_logs_table.dart';
+import 'tables/foods_table.dart';
 import 'tables/water_logs_table.dart';
 import 'tables/workout_sets_table.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Exercises, WorkoutSets, WaterLogs])
+@DriftDatabase(tables: [Exercises, WorkoutSets, WaterLogs, Foods, FoodLogs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
           await m.createAll();
           await _seedDefaultExercises();
+          await _seedDefaultFoods();
         },
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
@@ -46,6 +50,16 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             // v3 introduces the water-intake log.
             await m.createTable(waterLogs);
+          }
+          if (from < 4) {
+            // v4 introduces the calorie-tracking feature.
+            await m.createTable(foods);
+            await m.createTable(foodLogs);
+            await _seedDefaultFoods();
+          } else {
+            // Already on v4+. Backfill any new curated foods added to
+            // the library since the last release.
+            await _seedMissingFoods();
           }
         },
       );
@@ -96,6 +110,44 @@ class AppDatabase extends _$AppDatabase {
       await (update(exercises)..where((e) => e.id.equals(row.id))).write(
         ExercisesCompanion(
           measurementType: Value(match.measurementType.dbValue),
+        ),
+      );
+    }
+  }
+
+  /// Insert every curated food on a fresh install.
+  Future<void> _seedDefaultFoods() async {
+    for (final f in seedFoods) {
+      await into(foods).insert(
+        FoodsCompanion.insert(
+          name: f.name,
+          category: f.category.name,
+          baseAmount: f.baseAmount.toDouble(),
+          baseUnit: f.baseUnit.name,
+          kcal: f.kcal,
+          proteinG: f.proteinG,
+        ),
+      );
+    }
+  }
+
+  /// Insert any default foods the user doesn't already have, matched
+  /// case-insensitively by name. Used on upgrade so older installs pick
+  /// up additions to the curated library without duplicating rows.
+  Future<void> _seedMissingFoods() async {
+    final existing = await select(foods).get();
+    final existingNames = existing.map((e) => e.name.toLowerCase()).toSet();
+
+    for (final f in seedFoods) {
+      if (existingNames.contains(f.name.toLowerCase())) continue;
+      await into(foods).insert(
+        FoodsCompanion.insert(
+          name: f.name,
+          category: f.category.name,
+          baseAmount: f.baseAmount.toDouble(),
+          baseUnit: f.baseUnit.name,
+          kcal: f.kcal,
+          proteinG: f.proteinG,
         ),
       );
     }
@@ -311,18 +363,175 @@ class AppDatabase extends _$AppDatabase {
     return (delete(waterLogs)..where((l) => l.id.equals(id))).go();
   }
 
+  // ── Food Queries ──
+
+  Stream<List<Food>> watchAllFoods() =>
+      (select(foods)..orderBy([(f) => OrderingTerm(expression: f.name)]))
+          .watch();
+
+  Future<Food?> getFoodById(int id) {
+    return (select(foods)..where((f) => f.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<int> insertCustomFood({
+    required String name,
+    required String category,
+    required double baseAmount,
+    required String baseUnit,
+    required int kcal,
+    required double proteinG,
+  }) {
+    return into(foods).insert(
+      FoodsCompanion.insert(
+        name: name,
+        category: category,
+        baseAmount: baseAmount,
+        baseUnit: baseUnit,
+        kcal: kcal,
+        proteinG: proteinG,
+        isCustom: const Value(true),
+      ),
+    );
+  }
+
+  Future<int> deleteFood(int id) async {
+    return transaction(() async {
+      // Orphan any logs referencing this food so history survives.
+      await (update(foodLogs)..where((l) => l.foodId.equals(id))).write(
+        const FoodLogsCompanion(foodId: Value(null)),
+      );
+      return (delete(foods)..where((f) => f.id.equals(id))).go();
+    });
+  }
+
+  // ── Food Log Queries ──
+
+  /// Today's food entries, newest first.
+  Stream<List<FoodLog>> watchTodayFoodLogs() {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    return (select(foodLogs)
+          ..where((l) => l.loggedAt.isBetweenValues(todayStart, todayEnd))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .watch();
+  }
+
+  /// Food logs from [since] onwards (inclusive), newest first. Drives
+  /// the calorie history screen.
+  Stream<List<FoodLog>> watchFoodLogsSince(DateTime since) {
+    return (select(foodLogs)
+          ..where((l) => l.loggedAt.isBiggerOrEqualValue(since))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .watch();
+  }
+
+  /// Recently-logged food ids, de-duplicated, newest first. Used to
+  /// populate the "Recents" strip above the search bar.
+  Future<List<int>> getRecentFoodIds({int limit = 8}) async {
+    final now = DateTime.now();
+    final since = now.subtract(const Duration(days: 14));
+    final rows = await (select(foodLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(since) &
+              l.foodId.isNotNull())
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .get();
+    final seen = <int>{};
+    final out = <int>[];
+    for (final r in rows) {
+      final id = r.foodId;
+      if (id == null || seen.contains(id)) continue;
+      seen.add(id);
+      out.add(id);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
+  /// Watch-able version: emits a new list every time food logs change.
+  Stream<List<int>> watchRecentFoodIds({int limit = 8}) {
+    final now = DateTime.now();
+    final since = now.subtract(const Duration(days: 14));
+    return (select(foodLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(since) &
+              l.foodId.isNotNull())
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .watch()
+        .map((rows) {
+      final seen = <int>{};
+      final out = <int>[];
+      for (final r in rows) {
+        final id = r.foodId;
+        if (id == null || seen.contains(id)) continue;
+        seen.add(id);
+        out.add(id);
+        if (out.length >= limit) break;
+      }
+      return out;
+    });
+  }
+
+  Future<int> insertFoodLog({
+    required int? foodId,
+    required String foodName,
+    required double portionAmount,
+    required String portionUnit,
+    required int kcal,
+    required double proteinG,
+    DateTime? loggedAt,
+  }) {
+    return into(foodLogs).insert(
+      FoodLogsCompanion.insert(
+        foodId: Value(foodId),
+        foodName: foodName,
+        portionAmount: portionAmount,
+        portionUnit: portionUnit,
+        kcal: kcal,
+        proteinG: proteinG,
+        loggedAt: loggedAt ?? DateTime.now(),
+      ),
+    );
+  }
+
+  Future<int> deleteFoodLog(int id) {
+    return (delete(foodLogs)..where((l) => l.id.equals(id))).go();
+  }
+
+  Future<bool> updateFoodLog({
+    required int id,
+    required double portionAmount,
+    required int kcal,
+    required double proteinG,
+  }) async {
+    final count = await (update(foodLogs)..where((l) => l.id.equals(id)))
+        .write(
+      FoodLogsCompanion(
+        portionAmount: Value(portionAmount),
+        kcal: Value(kcal),
+        proteinG: Value(proteinG),
+      ),
+    );
+    return count > 0;
+  }
+
   // ── Bulk Reset ──
 
-  /// Wipes every user-generated log (workout sets, water entries) and
-  /// the user-created custom exercises. The curated default exercise
-  /// library is preserved so the user can immediately resume logging.
-  /// Profile data and simple app preferences are stored outside the
-  /// database and are untouched by this call.
+  /// Wipes every user-generated log (workout sets, water entries, food
+  /// entries) and the user-created custom exercises / foods. The
+  /// curated default libraries are preserved so the user can
+  /// immediately resume logging. Profile data and simple app
+  /// preferences are stored outside the database and are untouched by
+  /// this call.
   Future<void> resetAllLoggedData() async {
     await transaction(() async {
       await delete(workoutSets).go();
       await delete(waterLogs).go();
+      await delete(foodLogs).go();
       await (delete(exercises)..where((e) => e.isCustom.equals(true))).go();
+      await (delete(foods)..where((f) => f.isCustom.equals(true))).go();
     });
   }
 
