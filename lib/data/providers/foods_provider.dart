@@ -45,6 +45,40 @@ final addCustomFoodProvider = Provider<
   };
 });
 
+/// Edit a user-custom food. Existing logs keep their snapshotted values
+/// so history isn't silently rewritten.
+final updateCustomFoodProvider = Provider<
+    Future<bool> Function({
+      required int id,
+      required String name,
+      required String category,
+      required double baseAmount,
+      required String baseUnit,
+      required int kcal,
+      required double proteinG,
+    })>((ref) {
+  final db = ref.watch(databaseProvider);
+  return ({
+    required int id,
+    required String name,
+    required String category,
+    required double baseAmount,
+    required String baseUnit,
+    required int kcal,
+    required double proteinG,
+  }) {
+    return db.updateCustomFood(
+      id: id,
+      name: name,
+      category: category,
+      baseAmount: baseAmount,
+      baseUnit: baseUnit,
+      kcal: kcal,
+      proteinG: proteinG,
+    );
+  };
+});
+
 /// Delete a food. Any logs referencing it are orphaned (name snapshot kept).
 final deleteFoodProvider =
     Provider<Future<int> Function(int id)>((ref) {
