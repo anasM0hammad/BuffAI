@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../history/screens/history_tab_screen.dart';
+import '../calorie/screens/calorie_screen.dart';
 import '../performance/screens/performance_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../today/screens/today_screen.dart';
@@ -19,7 +19,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  // 0 = Workout (default), 1 = Water, 2 = History, 3 = Performance, 4 = Settings
+  // 0 = Workout (default), 1 = Water, 2 = Calories, 3 = Performance, 4 = Settings
   int _index = 0;
 
   @override
@@ -41,7 +41,7 @@ class _MainShellState extends State<MainShell> {
               children: const [
                 TodayScreen(),
                 WaterScreen(),
-                HistoryTabScreen(),
+                CalorieScreen(),
                 PerformanceScreen(),
                 SettingsScreen(),
               ],
@@ -83,9 +83,9 @@ class _BuffBottomNav extends StatelessWidget {
         label: 'Water',
       ),
       _TabSpec(
-        icon: Icons.history_rounded,
-        selectedIcon: Icons.history_rounded,
-        label: 'History',
+        icon: Icons.local_fire_department_outlined,
+        selectedIcon: Icons.local_fire_department_rounded,
+        label: 'Calories',
       ),
       _TabSpec(
         icon: Icons.bar_chart_outlined,

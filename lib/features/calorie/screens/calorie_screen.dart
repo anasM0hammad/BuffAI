@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/providers/food_logs_provider.dart';
 import '../../../shared/widgets/empty_state.dart';
+import 'calorie_history_screen.dart';
 import 'food_picker_sheet.dart';
 import 'portion_sheet.dart';
 
@@ -48,6 +49,19 @@ class CalorieScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         automaticallyImplyLeading: false,
         title: Text('Calories', style: AppTypography.sectionHeader),
+        actions: [
+          IconButton(
+            tooltip: 'Calorie history',
+            icon: const Icon(Icons.history_rounded,
+                color: AppColors.textSecondary),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CalorieHistoryScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
