@@ -10,6 +10,7 @@ import '../../profile/providers/profile_provider.dart';
 import '../../today/screens/today_screen.dart';
 import '../widgets/edit_profile_sheet.dart';
 import 'manage_exercises_screen.dart';
+import 'manage_foods_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -101,7 +102,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // Manage Exercises
-          _SectionHeader(title: 'Exercises'),
+          _SectionHeader(title: 'Library'),
           _SettingsTile(
             title: 'Manage Exercises',
             subtitle: 'Add, edit, or remove exercises',
@@ -110,6 +111,17 @@ class SettingsScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => const ManageExercisesScreen(),
+              ),
+            ),
+          ),
+          _SettingsTile(
+            title: 'Manage Foods',
+            subtitle: 'Add, edit, or remove foods',
+            icon: Icons.restaurant_menu_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManageFoodsScreen(),
               ),
             ),
           ),

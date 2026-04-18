@@ -161,9 +161,9 @@ class CalorieScreen extends ConsumerWidget {
 
 // ── Progress card ─────────────────────────────────────────────────────
 
-/// One card, two rows: calories (with surplus/deficit delta) and protein
-/// (with remaining-to-goal). Keeps the user's focus on "where am I
-/// relative to my goal today?" rather than on raw totals.
+/// Compact two-column readout — calories on the left, protein on the
+/// right — each showing `current / goal unit`. No progress bar and no
+/// surplus/deficit pill here; that level of detail lives in history.
 class _ProgressCard extends StatelessWidget {
   final DailyIntake intake;
   final CalorieGoal goal;
@@ -172,65 +172,36 @@ class _ProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final kcalDelta = intake.kcal - goal.kcal; // +surplus, -deficit
-    final proteinRemaining = (goal.proteinG - intake.proteinG)
-        .clamp(0, goal.proteinG)
-        .toDouble();
-    final proteinOver = intake.proteinG - goal.proteinG;
-
-    final kcalProgress =
-        goal.kcal <= 0 ? 0.0 : (intake.kcal / goal.kcal).clamp(0.0, 1.0);
-    final proteinProgress = goal.proteinG <= 0
-        ? 0.0
-        : (intake.proteinG / goal.proteinG).clamp(0.0, 1.0);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.divider, width: 1),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _ProgressRow(
-              label: 'Calories',
-              current: '${intake.kcal}',
-              goal: '${goal.kcal}',
-              unit: 'kcal',
-              progress: kcalProgress,
-              accent: AppColors.primaryRed,
-              trailing: _DeltaPill(
-                label: kcalDelta >= 0 ? 'Surplus' : 'Deficit',
-                value: kcalDelta >= 0
-                    ? '+${kcalDelta.abs()}'
-                    : '−${kcalDelta.abs()}',
+            Expanded(
+              child: _StatCell(
+                label: 'Calories',
+                current: '${intake.kcal}',
+                goal: '${goal.kcal}',
                 unit: 'kcal',
-                isSurplus: kcalDelta >= 0,
+                accent: AppColors.primaryRed,
               ),
             ),
-            const SizedBox(height: 14),
-            Container(height: 1, color: AppColors.divider),
-            const SizedBox(height: 14),
-            _ProgressRow(
-              label: 'Protein',
-              current: _formatProtein(intake.proteinG),
-              goal: _formatProtein(goal.proteinG),
-              unit: 'g',
-              progress: proteinProgress,
-              accent: AppColors.textPrimary,
-              trailing: _DeltaPill(
-                label: proteinOver >= 0 ? 'Hit' : 'Remaining',
-                value: proteinOver >= 0
-                    ? '+${_formatProtein(proteinOver)}'
-                    : _formatProtein(proteinRemaining),
+            Container(width: 1, height: 40, color: AppColors.divider),
+            Expanded(
+              child: _StatCell(
+                label: 'Protein',
+                current: _formatProtein(intake.proteinG),
+                goal: _formatProtein(goal.proteinG),
                 unit: 'g',
-                isSurplus: proteinOver >= 0,
-                neutralWhenSurplus: true,
+                accent: AppColors.textPrimary,
               ),
             ),
           ],
@@ -245,48 +216,38 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
-class _ProgressRow extends StatelessWidget {
+class _StatCell extends StatelessWidget {
   final String label;
   final String current;
   final String goal;
   final String unit;
-  final double progress;
   final Color accent;
-  final Widget trailing;
 
-  const _ProgressRow({
+  const _StatCell({
     required this.label,
     required this.current,
     required this.goal,
     required this.unit,
-    required this.progress,
     required this.accent,
-    required this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textTertiary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                fontSize: 10,
-              ),
-            ),
-            const Spacer(),
-            trailing,
-          ],
+        Text(
+          label.toUpperCase(),
+          style: AppTypography.caption.copyWith(
+            color: AppColors.textTertiary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+            fontSize: 10,
+          ),
         ),
         const SizedBox(height: 6),
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
@@ -294,98 +255,23 @@ class _ProgressRow extends StatelessWidget {
               current,
               style: AppTypography.heroNumber.copyWith(
                 color: accent,
-                fontSize: 28,
+                fontSize: 24,
                 letterSpacing: -0.4,
+                height: 1.0,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 3),
             Text(
               '/ $goal $unit',
-              style: AppTypography.body.copyWith(
+              style: AppTypography.caption.copyWith(
                 color: AppColors.textTertiary,
                 fontWeight: FontWeight.w600,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            backgroundColor: AppColors.surfaceElevated,
-            valueColor: AlwaysStoppedAnimation<Color>(accent),
-          ),
-        ),
       ],
-    );
-  }
-}
-
-/// Compact pill that shows either a surplus (+120 kcal) or a deficit
-/// (−300 kcal). Red for surplus, muted green-ish text for deficit. Green
-/// isn't in the app palette, so we use [AppColors.textPrimary] which
-/// reads as "on track" against the surface.
-class _DeltaPill extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final bool isSurplus;
-
-  /// When true, the "positive" state (isSurplus) renders as neutral
-  /// rather than red. Used for protein, where hitting the target is a
-  /// good thing, not an alert.
-  final bool neutralWhenSurplus;
-
-  const _DeltaPill({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.isSurplus,
-    this.neutralWhenSurplus = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final useAlert = isSurplus && !neutralWhenSurplus;
-    final bg = useAlert
-        ? AppColors.primarySoft
-        : AppColors.surfaceElevated;
-    final fg = useAlert ? AppColors.primaryRed : AppColors.textPrimary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: AppTypography.caption.copyWith(
-              color: fg.withOpacity(0.7),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              fontSize: 9,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$value $unit',
-            style: AppTypography.body.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
